@@ -30,13 +30,25 @@ jobs:
 
       # 想用固定签名，就把 keystore 以 base64 存进仓库 Secret：KEYSTORE_BASE64
       # 不设置则生成临时密钥（产出的 APK 与线上版本签名不同，装过旧版需先卸载）
+      # 注意：不能在 if: 里引用 secrets（GitHub 不允许该上下文，会导致 startup_failure），
+      #       所以统一放 env，在脚本里判断是否为空。
       - name: 解出签名密钥（可选）
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/botctl.keystore"
-          echo "BOTCTL_KEYSTORE=$RUNNER_TEMP/botctl.keystore" >> "$GITHUB_ENV"
-          echo "BOTCTL_KS_PASS=${{ secrets.KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
-          echo "BOTCTL_KEY_ALIAS=${{ secrets.KEYSTORE_ALIAS }}" >> "$GITHUB_ENV"
+          if [ -z "${KEYSTORE_BASE64:-}" ]; then
+            echo "未配置 KEYSTORE_BASE64，将生成临时签名密钥（每次构建都不同）"
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/botctl.keystore"
+          {
+            echo "BOTCTL_KEYSTORE=$RUNNER_TEMP/botctl.keystore"
+            echo "BOTCTL_KS_PASS=$KEYSTORE_PASSWORD"
+            echo "BOTCTL_KEY_ALIAS=${KEYSTORE_ALIAS:-botctl}"
+          } >> "$GITHUB_ENV"
+          echo "已解出 keystore"
 
       - name: 构建
         working-directory: app
