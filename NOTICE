@@ -1,0 +1,52 @@
+# 第三方组件与许可（NOTICE）
+
+本仓库**自己的代码**（Android App 源码、部署脚本、地图索引与删图服务）采用 MIT 许可。
+
+它运行时依赖两个**上游 AGPL-3.0 组件**。为了不产生再分发义务，**两个 jar 都不进仓库**，
+由 `scripts/fetch-upstream.sh` 在部署时从上游官方 Release 下载并按 SHA256 校验。
+
+---
+
+## 1. ZenithProxy（机器人本体）
+
+- 仓库：https://github.com/rfresh2/ZenithProxy
+- 作者：rfresh2
+- 许可：**AGPL-3.0**
+- 本项目用它：直接运行官方发布的 `ZenithProxy.jar`（`3.7.3+java.1.21.4`），**未做任何修改**
+- 分发方式：不随本仓库分发；部署时下载
+
+## 2. ZenithProxy-WebUI（面板插件）
+
+- 仓库：https://github.com/wxh1024/ZenithProxy-WebUI
+- 作者：wxh1024
+- 许可：**AGPL-3.0-or-later**
+- 本项目用它：官方发布 `ZenithProxy-WebUI-1.4.0.jar`，**未修改**；App 通过它的 HTTP API 读写数据
+- 分发方式：不随本仓库分发；部署时下载
+
+---
+
+## 如果你想把这些 jar 一并放进自己的仓库
+
+可以，但要满足 AGPL 的要求（**否则不要提交二进制**）：
+
+1. 保留原始许可文本与版权声明（AGPL-3.0 全文 + 上游作者）
+2. 明确标注你复制的是哪个版本、来自哪个 URL
+3. 提供完整对应源码的获取方式（可直接链接上游对应 tag，未修改时这通常足够）
+4. 若你修改过 jar 的内容，必须公开修改后的源码，并注明修改
+5. 不要给上游组件加额外的限制条款
+
+> 实践建议：**把 jar 放在 Release 附件而不是 Git 历史里**。Git 里塞 60 MB 二进制会让仓库
+> 克隆变慢且无法瘦身；Release 附件既符合"提供获取方式"，也不污染历史。
+
+## 3. Android / OpenJDK
+
+App 只依赖 Android 平台自身的 API（`android.widget`、`android.graphics`、`org.json` 等），
+不包含 AndroidX、Kotlin、Gson 等第三方库。构建使用 OpenJDK（GPLv2+CE）与
+Android SDK build-tools（Android SDK 许可，仅用于构建，不随仓库分发）。
+
+---
+
+## 商标
+
+"ZenithProxy"、"2b2t" 等名称属于各自所有者。本项目与上游作者无隶属关系，
+也未获得其背书。

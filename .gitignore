@@ -1,0 +1,30 @@
+# 构建产物
+dist/
+app/build/
+*.apk
+!releases/*.apk
+
+# 运行期数据（绝不提交）
+*.log
+console.log
+mc_auth_cache.json
+config.json
+launch_config.json
+maps/
+plugins/
+backup/
+
+# 密钥
+*.keystore
+*.jks
+*.pem
+*.key
+
+# 编辑器 / 系统
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc

@@ -1,0 +1,15 @@
+# 统一换行符：Linux 侧脚本必须保持 LF，否则 bash 会报 bad interpreter
+* text=auto eol=lf
+
+*.sh    text eol=lf
+*.py    text eol=lf
+*.java  text eol=lf
+*.yml   text eol=lf
+*.md    text eol=lf
+*.json  text eol=lf
+
+# 二进制，别动
+*.apk   binary
+*.jar   binary
+*.keystore binary
+*.png   binary
