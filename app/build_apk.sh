@@ -96,9 +96,9 @@ cd "$BUILD" || die "cd build"
 "$BT/zipalign" -f 4 base.apk aligned.apk || die "zipalign failed"
 
 # keystore 必须放在 $BUILD 之外（第 1 步会清空 $BUILD）；保持稳定才能原地升级。
-# 想用自己的签名：设 BOTCTL_KEYSTORE=/path/to/your.keystore 并改下面的口令。
+# 口令一律从环境变量来，不写死在脚本里：export BOTCTL_KS_PASS=你的口令
 KS="${BOTCTL_KEYSTORE:-$PROJ/botctl.keystore}"
-KS_PASS="${BOTCTL_KS_PASS:-botctl123}"
+KS_PASS="${BOTCTL_KS_PASS:-}"
 KEY_ALIAS="${BOTCTL_KEY_ALIAS:-botctl}"
 
 if [ ! -f "$KS" ]; then
@@ -110,6 +110,13 @@ if [ ! -f "$KS" ]; then
     echo "BUILD_DONE $OUT"
     exit 0
   fi
+  # 首次生成 keystore：没给口令就随机生成一个并打印出来，请自己保存
+  if [ -z "$KS_PASS" ]; then
+    KS_PASS=$(head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | cut -c1-20)
+    echo "  ⚠ 已为本次 keystore 生成随机口令（只显示这一次，请保存）："
+    echo "      $KS_PASS"
+    echo "    以后构建：export BOTCTL_KS_PASS=$KS_PASS"
+  fi
   keytool -genkeypair -keystore "$KS" -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 \
     -validity 10000 -storepass "$KS_PASS" -keypass "$KS_PASS" \
     -dname "CN=BotCtl, OU=BotCtl, O=BotCtl, L=NA, ST=NA, C=CN" >/dev/null 2>&1 \
@@ -117,6 +124,7 @@ if [ ! -f "$KS" ]; then
   echo "  keystore 已生成：$KS"
   echo "  ⚠ 这是临时密钥：CI 里每次都会换新密钥，装过旧版的设备必须先卸载"
 else
+  [ -n "$KS_PASS" ] || die "已有 keystore 但没给口令。请先 export BOTCTL_KS_PASS=你的口令"
   echo "  reusing keystore $KS"
 fi
 

@@ -12,8 +12,8 @@ STATUS = (
     "Health: 20.0\n"
     "Dimension: overworld\n"
     "Ping: 46ms\n"
-    "Proxy IP: 8.148.204.46:25565\n"
-    "Server: 3c3u.org:25565\n"
+    "Proxy IP: 203.0.113.10:25565\n"
+    "Server: mc.example.com:25565\n"
     "Connected Player: None\n"
     "2b2t Queue: Priority: 1 [00:03:19]\n"
     "Regular: 636 [37:17:00]\n"
@@ -56,7 +56,7 @@ m = P_COORDS.search(STATUS)
 check("coords", m.groups() if m else None, ("8440244", "70", "11622371"))
 check("dimension", field(STATUS, "Dimension"), "overworld")
 check("online duration", field(STATUS, "Online Duration"), "00:00:45")
-check("server", field(STATUS, "Server"), "3c3u.org:25565")
+check("server", field(STATUS, "Server"), "mc.example.com:25565")
 check("health", field(STATUS, "Health"), "20.0")
 
 lm = P_LINK.search(DEVICE_MSG)

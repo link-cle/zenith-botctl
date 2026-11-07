@@ -342,7 +342,7 @@ java.lang.NullPointerException: Cannot invoke "String.length()" because "<parame
 - 无资源目录（纯代码 UI），所以 `aapt2 link` 只出 `AndroidManifest.xml` + `resources.arsc`
 - `classes.dex` 用 Python 写进 APK（避免依赖 `zip` 命令）
 - 签名密钥：`/root/botctl4/botctl.keystore`（**已移出 `build/` 目录**，因为构建第一步会
-  清空 `build/`；之前放里面导致每次构建换新密钥、每次都要卸载重装）。口令 `botctl123`，
+  清空 `build/`；之前放里面导致每次构建换新密钥、每次都要卸载重装）。口令由环境变量 `BOTCTL_KS_PASS` 提供（脚本里不写死），
   别名 `botctl`。当前证书 SHA-256 `d25e2266…`，重建已验证指纹不变，可原地升级。
 - 翻译规则校验：`python3 /root/botctl4/gen_translate_test.py` 会从 `MainActivity.java`
   抽出 `TRANSLATIONS` 表，用 javac 17 编译成纯 JVM 程序，对真实日志文本跑一遍并打印中英对照。
