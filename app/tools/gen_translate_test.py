@@ -26,11 +26,11 @@ if len(literals) % 2 != 0:
     sys.exit(1)
 
 samples = [
-    "Logged in as link_cle [906f391a-e1f3-46fb-a8a6-9d3ccf1dd543].",
-    "Logging in link_cle...",
+    "Logged in as YourName [00000000-0000-0000-0000-000000000000].",
+    "Logging in YourName...",
     "Connecting to mc.example.com:25565...",
     "Connected to host.mc.example.com/203.0.113.10:25565!",
-    "Server teleport 1 to: 8440256.51046974, 91.00000000, 11622372.95944670",
+    "Server teleport 1 to: 1120256.51046974, 91.00000000, 11882372.95944670",
     "Server started.",
     "Starting server on 0.0.0.0:25565...",
     "Started LAN server broadcaster",

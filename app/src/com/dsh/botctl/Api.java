@@ -289,7 +289,7 @@ public class Api {
         return new String[]{host, String.valueOf(port)};
     }
 
-    /** Parses "Coordinates: ||[8440244, 70, 11622371]||" into {x,y,z}. */
+    /** Parses "Coordinates: ||[1120244, 70, 11882371]||" into {x,y,z}. */
     public static Integer[] parseCoords(String statusText) {
         if (statusText == null) return null;
         java.util.regex.Matcher m = java.util.regex.Pattern

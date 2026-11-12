@@ -5,7 +5,7 @@ semantics for these constructs, so this is a faithful check of the parsing layer
 import re
 
 STATUS = (
-    "ZenithProxy 3.7.3+java.1.21.4 - link_cle\n"
+    "ZenithProxy 3.7.3+java.1.21.4 - YourName\n"
     "Status: Online\n"
     "Uptime: 51s\n"
     "Online Duration: 00:00:45\n"
@@ -17,7 +17,7 @@ STATUS = (
     "Connected Player: None\n"
     "2b2t Queue: Priority: 1 [00:03:19]\n"
     "Regular: 636 [37:17:00]\n"
-    "Coordinates: ||[8440244, 70, 11622371]||\n"
+    "Coordinates: ||[1120244, 70, 11882371]||\n"
     "AutoUpdate: off"
 )
 
@@ -53,7 +53,7 @@ def check(name, got, want):
 
 
 m = P_COORDS.search(STATUS)
-check("coords", m.groups() if m else None, ("8440244", "70", "11622371"))
+check("coords", m.groups() if m else None, ("1120244", "70", "11882371"))
 check("dimension", field(STATUS, "Dimension"), "overworld")
 check("online duration", field(STATUS, "Online Duration"), "00:00:45")
 check("server", field(STATUS, "Server"), "mc.example.com:25565")
