@@ -5,6 +5,10 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+# 发 Release 需要写仓库内容；GITHUB_TOKEN 由 Actions 自动提供，无需额外 PAT
+permissions:
+  contents: write
+
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -62,3 +66,43 @@ jobs:
           name: BotCtl-apk
           path: app/BotCtl-*.apk
           if-no-files-found: error
+
+      # ---- 标签触发时，自动发 Release（用内置 GITHUB_TOKEN，不需要 PAT）
+      # 附件优先用仓库里 releases/BotCtl-<版本>.apk（维护者本机签名，签名稳定，
+      # 老用户能直接覆盖升级）；只有仓库没放时才退回本次 CI 构建的产物
+      # （CI 产物用临时密钥签名，装过旧版的设备必须先卸载）。
+      - name: 选定发布附件
+        id: pick
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          ASSET="releases/BotCtl-$VER.apk"
+          if [ -f "$ASSET" ]; then
+            SIGNED="维护者签名（可覆盖升级）"
+          else
+            ASSET="$(ls app/BotCtl-*.apk 2>/dev/null | head -1)"
+            SIGNED="CI 临时签名（装过旧版需先卸载）"
+          fi
+          echo "附件: $ASSET"
+          echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
+          echo "signed=$SIGNED" >> "$GITHUB_OUTPUT"
+          sha256sum "$ASSET"
+
+      - name: 发布 Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.pick.outputs.asset }}
+          name: BotCtl ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          body: |
+            **BotCtl ${{ github.ref_name }}**
+
+            手机端管理 ZenithProxy 机器人：Android App + 服务器部署脚本 + 地图/喊话服务。
+
+            - 附件 `BotCtl-*.apk`：直接安装（Android 5.0+）
+            - 部署方法见 [docs/部署教程.md](https://github.com/link-cle/zenith-botctl/blob/main/docs/部署教程.md)
+            - App 用法见 [docs/App说明.md](https://github.com/link-cle/zenith-botctl/blob/main/docs/App说明.md)
+            - 签名方式：${{ steps.pick.outputs.signed }}
+            - 本项目代码 MIT；运行时依赖 ZenithProxy / ZenithProxy-WebUI（AGPL-3.0），不随仓库分发
