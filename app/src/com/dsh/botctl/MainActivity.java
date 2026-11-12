@@ -120,7 +120,9 @@ public class MainActivity extends Activity {
     private EditText srvInput, pathX, pathZ, pathPlayer, pathBlock, chatInput, rawCmd, infoName;
     private ScrollView toolsScroll;
     private TextView viaState;
-    private final java.util.List<Button> viaVersionBtns = new java.util.ArrayList<Button>();
+    // ---- chat tab（定时喊话）
+    private TextView chatStatus;
+    private EditText chatMsgs, chatSec, chatJitter;    private final java.util.List<Button> viaVersionBtns = new java.util.ArrayList<Button>();
     private final java.util.List<String> viaVersionLabels = new java.util.ArrayList<String>();
     private static final String[] VIA_VERSIONS = {
             "auto", "1.21.4", "1.21.1", "1.21", "1.20.6", "1.20.4", "1.20.2", "1.20.1", "1.20",
@@ -181,7 +183,7 @@ public class MainActivity extends Activity {
         // Nothing is baked into this build: the APK is shareable, so the person who
         // installs it fills in their own panel address, user and password.
         if (edHost.getText().toString().trim().length() == 0) {
-            selectTab(6);   // 「账号」页
+            selectTab(7);   // 「账号」页
             setAcctMsg("首次使用：请填写面板地址、用户名和密码，然后点「保存并连接」");
         } else {
             connectAsync();
@@ -258,8 +260,8 @@ public class MainActivity extends Activity {
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         root.addView(head);
 
-        // tab bar: 7 entries, two rows (4 + 3) so the labels stay readable
-        String[] names = new String[]{"状态", "白名单", "日志", "功能", "版本", "地图", "账号"};
+        // tab bar: 8 entries, two rows of four so the labels stay readable
+        String[] names = new String[]{"状态", "白名单", "日志", "功能", "版本", "喊话", "地图", "账号"};
         tabs = new Button[names.length];
         LinearLayout bar = null;
         for (int i = 0; i < names.length; i++) {
@@ -288,7 +290,7 @@ public class MainActivity extends Activity {
         root.addView(panelHost, hostLp);
 
         panels = new View[]{statusPanel(), whitelistPanel(), logPanel(),
-                toolsPanel(), viaPanel(), mapPanel(), accountPanel()};
+                toolsPanel(), viaPanel(), chatPanel(), mapPanel(), accountPanel()};
         for (View p : panels) {
             panelHost.addView(p, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -313,8 +315,9 @@ public class MainActivity extends Activity {
             refreshModuleStates();
         }
         if (idx == 4) refreshViaState();        // 版本
-        if (idx == 5) loadMapIndex();           // 地图
-        if (idx == 6) renderAccounts();         // 账号
+        if (idx == 5) refreshChat();            // 喊话
+        if (idx == 6) loadMapIndex();           // 地图
+        if (idx == 7) renderAccounts();         // 账号
         // render the backlog only when the log page becomes visible, then keep to the tail
         if (idx == 2 && logView != null) {
             logDirty = false;
@@ -2539,6 +2542,303 @@ public class MainActivity extends Activity {
             b.setTypeface(null, sel
                     ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
         }
+    }
+
+    // ================================================================== chat tab
+
+    /** 调 8081 维护服务（地图 + 喊话），回调在 UI 线程。 */
+    private interface HelperCb {
+        void done(JSONObject res, String err);
+    }
+
+    private void helperPost(final String path, final JSONObject body, final HelperCb cb) {
+        final Api a = api;
+        if (a == null || !loggedIn) {
+            cb.done(null, "还没连上面板");
+            return;
+        }
+        // 控件必须在 UI 线程读
+        final String host = Api.splitHostPort(edHost.getText().toString().trim(), DEF_PORT)[0];
+        final String user = edUser.getText().toString().trim();
+        final String pass = edPass.getText().toString();
+        new Thread(new Runnable() {
+            public void run() {
+                java.net.HttpURLConnection c = null;
+                try {
+                    JSONObject p = body == null ? new JSONObject() : body;
+                    p.put("user", user);
+                    p.put("pass", pass);
+                    c = (java.net.HttpURLConnection)
+                            new java.net.URL(mapAdminBase(host) + path).openConnection();
+                    c.setRequestMethod("POST");
+                    c.setDoOutput(true);
+                    c.setConnectTimeout(8000);
+                    c.setReadTimeout(30000);
+                    c.setRequestProperty("Content-Type", "application/json");
+                    c.getOutputStream().write(p.toString().getBytes("UTF-8"));
+                    int code = c.getResponseCode();
+                    java.io.InputStream in = code >= 400 ? c.getErrorStream() : c.getInputStream();
+                    final String text = readAll(in);
+                    final JSONObject res;
+                    try {
+                        res = new JSONObject(text);
+                    } catch (Exception pe) {
+                        final int c2 = code;
+                        ui.post(new Runnable() {
+                            public void run() {
+                                cb.done(null, "维护服务返回异常 (HTTP " + c2 + ")");
+                            }
+                        });
+                        return;
+                    }
+                    ui.post(new Runnable() {
+                        public void run() {
+                            cb.done(res, null);
+                        }
+                    });
+                } catch (final Exception e) {
+                    ui.post(new Runnable() {
+                        public void run() {
+                            cb.done(null, "连不上维护服务 8081：" + e.getMessage());
+                        }
+                    });
+                } finally {
+                    if (c != null) c.disconnect();
+                }
+            }
+        }).start();
+    }
+
+    private static String readAll(java.io.InputStream in) throws java.io.IOException {
+        if (in == null) return "";
+        java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+        byte[] buf = new byte[4096];
+        int n;
+        while ((n = in.read(buf)) > 0) bo.write(buf, 0, n);
+        in.close();
+        return new String(bo.toByteArray(), "UTF-8");
+    }
+
+    private View chatPanel() {
+        ScrollView sc = new ScrollView(this);
+        LinearLayout v = new LinearLayout(this);
+        v.setOrientation(LinearLayout.VERTICAL);
+        v.setPadding(dp(12), dp(8), dp(12), dp(16));
+        sc.addView(v);
+
+        v.addView(label("定时喊话（在服务器公屏上按间隔发文字）"));
+        chatStatus = new TextView(this);
+        chatStatus.setTextSize(14f);
+        chatStatus.setTextColor(Color.parseColor("#0D47A1"));
+        chatStatus.setPadding(dp(10), dp(10), dp(10), dp(10));
+        chatStatus.setBackgroundColor(Color.parseColor("#E3F2FD"));
+        chatStatus.setText("读取中…");
+        v.addView(chatStatus);
+
+        TextView warn = new TextView(this);
+        warn.setTextSize(11f);
+        warn.setTextColor(Color.parseColor("#C62828"));
+        warn.setText("⚠️ 公屏定时发言容易被判刷屏：间隔建议 ≥5 分钟，措辞别像广告。"
+                + "被禁言/封号的后果自负。");
+        v.addView(warn);
+
+        LinearLayout r1 = toolRow(v);
+        Button on = btn("开启", new View.OnClickListener() {
+            public void onClick(View x) {
+                chatSetEnabled(true);
+            }
+        });
+        on.setBackgroundColor(Color.parseColor("#2E7D32"));
+        on.setTextColor(Color.WHITE);
+        r1.addView(on);
+        r1.addView(btn("关闭", new View.OnClickListener() {
+            public void onClick(View x) {
+                chatSetEnabled(false);
+            }
+        }));
+        r1.addView(btn("立即发一条", new View.OnClickListener() {
+            public void onClick(View x) {
+                chatSendNow();
+            }
+        }));
+
+        v.addView(label("间隔与随机抖动"));
+        LinearLayout r2 = toolRow(v);
+        chatSec = toolInput("间隔（秒），最小 30");
+        r2.addView(chatSec, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        chatJitter = toolInput("抖动（秒）");
+        r2.addView(chatJitter, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        v.addView(label("消息内容（一行一条，轮流发）"));
+        chatMsgs = new EditText(this);
+        chatMsgs.setHint("第一行……\n第二行……");
+        chatMsgs.setTextSize(14f);
+        chatMsgs.setMinLines(4);
+        chatMsgs.setGravity(Gravity.TOP | Gravity.START);
+        chatMsgs.setBackgroundColor(Color.parseColor("#FAFAFA"));
+        chatMsgs.setPadding(dp(8), dp(8), dp(8), dp(8));
+        LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        mlp.setMargins(0, dp(4), 0, dp(8));
+        chatMsgs.setLayoutParams(mlp);
+        v.addView(chatMsgs);
+
+        Button save = btn("保存设置", new View.OnClickListener() {
+            public void onClick(View x) {
+                chatSave();
+            }
+        });
+        save.setBackgroundColor(Color.parseColor("#1565C0"));
+        save.setTextColor(Color.WHITE);
+        v.addView(save);
+
+        return sc;
+    }
+
+    private void refreshChat() {
+        if (chatStatus == null) return;
+        helperPost("/api/chat/get", null, new HelperCb() {
+            public void done(JSONObject res, String err) {
+                if (err != null) {
+                    chatStatus.setText("状态读取失败：" + err);
+                    return;
+                }
+                if (res == null) return;
+                boolean on = res.optBoolean("enabled", false);
+                int sec = res.optInt("intervalSec", 300);
+                int cnt = res.optInt("count", 0);
+                int sent = res.optInt("sentCount", 0);
+                double nextAt = res.optDouble("nextAt", 0);
+                double now = res.optDouble("now", 0);
+                StringBuilder sb = new StringBuilder();
+                sb.append(on ? "状态: 已开启" : "状态: 已关闭");
+                sb.append("　间隔: ").append(sec).append(" 秒");
+                sb.append("　抖动: ").append(res.optInt("jitterSec", 0)).append(" 秒");
+                sb.append("\n消息: ").append(cnt).append(" 条　已发: ").append(sent).append(" 次");
+                if (on && nextAt > now) {
+                    long left = (long) (nextAt - now);
+                    sb.append("\n下一条: ").append(left / 60).append(" 分 ").append(left % 60).append(" 秒后");
+                }
+                String last = res.optString("lastText", "");
+                if (last.length() > 0) sb.append("\n上次: ").append(last);
+                chatStatus.setText(sb.toString());
+
+                // 回填输入框（只在用户没改动时覆盖，避免打断编辑）
+                if (chatSec != null && chatSec.getText().toString().trim().length() == 0) {
+                    chatSec.setText(String.valueOf(sec));
+                }
+                if (chatJitter != null && chatJitter.getText().toString().trim().length() == 0) {
+                    chatJitter.setText(String.valueOf(res.optInt("jitterSec", 0)));
+                }
+                if (chatMsgs != null && chatMsgs.getText().toString().trim().length() == 0) {
+                    JSONArray arr = res.optJSONArray("messages");
+                    if (arr != null && arr.length() > 0) {
+                        StringBuilder mb = new StringBuilder();
+                        for (int i = 0; i < arr.length(); i++) {
+                            if (i > 0) mb.append('\n');
+                            mb.append(arr.optString(i, ""));
+                        }
+                        chatMsgs.setText(mb.toString());
+                    }
+                }
+            }
+        });
+    }
+
+    private void chatSetEnabled(final boolean want) {
+        JSONObject p = new JSONObject();
+        try {
+            p.put("enabled", want);
+        } catch (Exception ignored) {
+        }
+        helperPost("/api/chat/set", p, new HelperCb() {
+            public void done(JSONObject res, String err) {
+                if (err != null) {
+                    toast(err);
+                    return;
+                }
+                if (res == null) return;
+                if (!res.optBoolean("success", false)) {
+                    toast(res.optString("error", "操作失败"));
+                    return;
+                }
+                toast(want ? "已开启定时喊话" : "已关闭定时喊话");
+                refreshChat();
+            }
+        });
+    }
+
+    private void chatSave() {
+        String raw = chatMsgs.getText().toString();
+        JSONArray arr = new JSONArray();
+        String[] lines = raw.split("\n");
+        for (int i = 0; i < lines.length; i++) {
+            String s = lines[i].trim();
+            if (s.length() > 0) arr.put(s);
+        }
+        if (arr.length() == 0) {
+            toast("至少写一条消息");
+            return;
+        }
+        int sec;
+        try {
+            sec = Integer.parseInt(chatSec.getText().toString().trim());
+        } catch (Exception e) {
+            toast("间隔要填数字（秒）");
+            return;
+        }
+        if (sec < 30) {
+            toast("间隔不能小于 30 秒");
+            return;
+        }
+        int jitter = 0;
+        String js = chatJitter.getText().toString().trim();
+        if (js.length() > 0) {
+            try {
+                jitter = Integer.parseInt(js);
+            } catch (Exception ignored) {
+            }
+        }
+        JSONObject p = new JSONObject();
+        try {
+            p.put("messages", arr);
+            p.put("intervalSec", sec);
+            p.put("jitterSec", jitter);
+        } catch (Exception ignored) {
+        }
+        helperPost("/api/chat/set", p, new HelperCb() {
+            public void done(JSONObject res, String err) {
+                if (err != null) {
+                    toast(err);
+                    return;
+                }
+                if (res == null) return;
+                if (!res.optBoolean("success", false)) {
+                    toast(res.optString("error", "保存失败"));
+                    return;
+                }
+                toast("已保存 " + res.optInt("count", 0) + " 条消息");
+                refreshChat();
+            }
+        });
+    }
+
+    private void chatSendNow() {
+        helperPost("/api/chat/send", null, new HelperCb() {
+            public void done(JSONObject res, String err) {
+                if (err != null) {
+                    toast(err);
+                    return;
+                }
+                if (res == null) return;
+                if (!res.optBoolean("success", false)) {
+                    toast(res.optString("message", res.optString("error", "发送失败")));
+                    return;
+                }
+                toast("已发送：" + res.optString("lastText", ""));
+                refreshChat();
+            }
+        });
     }
 
     private View mapPanel() {

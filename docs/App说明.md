@@ -1,19 +1,19 @@
-# BotCtl 5.5 — 手机控制台使用说明
+# BotCtl 5.6 — 手机控制台使用说明
 
-文件：`BotCtl-5.5.apk`（57,743 字节，SHA256 `39B452D5A2437B6EC8469454949A5C60F3E73B231FB58375CB1BA7BE2C4D897A`）
-包名 `com.dsh.botctl`，版本 5.5（versionCode 35），minSdk 21（Android 5.0+），targetSdk 33
+文件：`BotCtl-5.6.apk`（61,839 字节，SHA256 `7E7D763177F64271BB037CABBC1A99769CE8C48B18F4008C6190C3D85D4AEC4F`）
+包名 `com.dsh.botctl`，版本 5.6（versionCode 36），minSdk 21（Android 5.0+），targetSdk 33
 签名证书 SHA-256：`d25e22660aa215807195454c6299ca51f7683ffb8178d5ad8cbbd6071d0d3c99`
 
 ---
 
 ## 一、安装
 
-1. 把 `BotCtl-5.5.apk` 传到手机（微信/QQ 传文件、USB 拷贝、或手机直接下载均可）
+1. 把 `BotCtl-5.6.apk` 传到手机（微信/QQ 传文件、USB 拷贝、或手机直接下载均可）
 2. 点击安装。首次会提示「未知来源应用」——允许你使用的文件管理器/浏览器安装即可
 3. 应用名：**Bot控制台**
 
 > 4.2 起的各版本用同一签名证书，**可直接覆盖升级**。
-> 若你手机上还是 4.1（或更早），那一版是用已被删除的旧密钥签的，**必须先卸载**再装 5.5。
+> 若你手机上还是 4.1（或更早），那一版是用已被删除的旧密钥签的，**必须先卸载**再装 5.6。
 
 ---
 
@@ -269,6 +269,39 @@ disconnect → auth clear → connect
 
 > 改完后必须点 **重连生效**（或状态页的上线）才会用到新版本。
 
+### 「喊话」页（5.6 新增）
+
+让机器人在服务器**公屏上按间隔自动发文字**。ZenithProxy 本身只有 `sendMessage <内容>`
+（发一次就完了），没有定时能力，所以这一页配的是服务器上的定时器服务。
+
+**状态条**：开关状态、间隔、抖动、消息条数、已发次数、距离下一条还有多久、上次发了什么。
+
+**三个按钮**
+
+| 按钮 | 行为 |
+| --- | --- |
+| **开启** | 打开定时器；从此刻起算一个间隔，之后每隔 interval±jitter 秒发下一条 |
+| **关闭** | 立即停（不会撤回已发的） |
+| 立即发一条 | 马上发一条，并推进到下一条消息（不影响排程） |
+
+**间隔与抖动**
+- 间隔单位是**秒，最小 30**（服务器端强制，防止手滑填 1 秒刷屏）
+- 抖动会在间隔上随机加减，让发送节奏不像机器人
+
+**消息内容**：一个多行输入框，**一行一条**，按顺序轮流发，发到最后一条回到第一条。
+
+> ⚠️ 公屏定时发言非常容易被判刷屏。建议：间隔 ≥5 分钟（300 秒）、措辞不要像广告、
+> 别用 @所有人 之类。被禁言/封号的后果自负。
+
+**工作方式**（值得知道）：定时器跑在服务器上（`mapadmin` 服务，端口 8081），
+**与手机无关** —— App 关掉、手机断网，它照样按间隔发。App 只是改配置和看状态。
+
+服务器端行为：
+- 每条间隔取 `intervalSec ± jitterSec`，下限 30 秒
+- 机器人离线时**不发也不空转**，每 30 秒探一次，上线后继续
+- 到点前后各 1 秒内触发（调度线程每秒醒一次）
+- 配置存在 `/root/ZenithProxy/chatloop.json`
+
 ### 「地图」页（4.6 新增，5.0 加删除）
 
 - **可视距离**：默认 6 区块（受代理已缓存区块限制，越大越慢）
@@ -317,7 +350,7 @@ App 用自己时钟探测几个相邻 bucket，并从 `generated` 字段自学�
 ```bash
 ssh root@YOUR_SERVER_IP
 cd /root/botctl4
-bash build_apk.sh          # 输出 /root/botctl4/BotCtl-5.5.apk
+bash build_apk.sh          # 输出 /root/botctl4/BotCtl-5.6.apk
 ```
 
 工具链在 `/opt/android/`：`build-tools`（aapt2 / d8 / zipalign / apksigner）+ `platform-34/android.jar`。
@@ -342,7 +375,7 @@ java.lang.NullPointerException: Cannot invoke "String.length()" because "<parame
 - 无资源目录（纯代码 UI），所以 `aapt2 link` 只出 `AndroidManifest.xml` + `resources.arsc`
 - `classes.dex` 用 Python 写进 APK（避免依赖 `zip` 命令）
 - 签名密钥：`/root/botctl4/botctl.keystore`（**已移出 `build/` 目录**，因为构建第一步会
-  清空 `build/`；之前放里面导致每次构建换新密钥、每次都要卸载重装）。口令由环境变量 `BOTCTL_KS_PASS` 提供（脚本里不写死），
+  清空 `build/`；之前放里面导致每次构建换新密钥、每次都要卸载重装）。口令由环境变量 `BOTCTL_KS_PASS` 提供（脚本不写死），
   别名 `botctl`。当前证书 SHA-256 `d25e2266…`，重建已验证指纹不变，可原地升级。
 - 翻译规则校验：`python3 /root/botctl4/gen_translate_test.py` 会从 `MainActivity.java`
   抽出 `TRANSLATIONS` 表，用 javac 17 编译成纯 JVM 程序，对真实日志文本跑一遍并打印中英对照。
@@ -371,7 +404,7 @@ java.lang.NullPointerException: Cannot invoke "String.length()" because "<parame
 
 | 路径 | 说明 |
 | --- | --- |
-| `BotCtl-5.5.apk` | 成品安装包 |
+| `BotCtl-5.6.apk` | 成品安装包 |
 | `app4/src/com/dsh/botctl/MainActivity.java` | 主界面与业务逻辑（含日志翻译/分类） |
 | `app4/src/com/dsh/botctl/Api.java` | HTTP / SSE / 解析 |
 | `app4/src/com/dsh/botctl/PingChart.java` | 延迟波动自绘控件 |
