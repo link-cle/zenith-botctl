@@ -47,32 +47,44 @@ case "$("$JC" -version 2>&1)" in
 esac
 
 echo
-echo "===== 1) javac ====="
-rm -rf "$BUILD"; mkdir -p "$BUILD/classes" "$BUILD/dex"
+echo
+echo "===== 1) 资源 aapt2 compile + link（生成 R.java）====="
+rm -rf "$BUILD"; mkdir -p "$BUILD/classes" "$BUILD/dex" "$BUILD/gen" "$BUILD/res"
 cd "$PROJ" || die "no project dir"
+RES_ZIP=""
+if [ -d res ]; then
+  "$BT/aapt2" compile --dir res -o "$BUILD/res/res.zip" 2>&1 | head -20
+  [ -f "$BUILD/res/res.zip" ] || die "aapt2 compile failed"
+  RES_ZIP="$BUILD/res/res.zip"
+  echo "  资源已编译: $(stat -c %s "$RES_ZIP") bytes"
+fi
+"$BT/aapt2" link -o "$BUILD/base.apk" -I "$AJ" --manifest AndroidManifest.xml \
+  --java "$BUILD/gen" $RES_ZIP 2>&1 | head -20
+[ -f "$BUILD/base.apk" ] || die "aapt2 link failed"
+echo "  base.apk $(stat -c %s "$BUILD/base.apk") bytes"
+
+echo
+echo "===== 2) javac ====="
+R_JAVA="$(find "$BUILD/gen" -name 'R.java' 2>/dev/null | head -1)"
+[ -n "$R_JAVA" ] && echo "  R.java: $R_JAVA"
 "$JC" -encoding UTF-8 -source 8 -target 8 -nowarn \
       -bootclasspath "$AJ" -d "$BUILD/classes" \
-      src/com/dsh/botctl/*.java 2>&1 | grep -vE 'bootstrap class path|source value 8|target value 8|deprecat|^[0-9]+ warning' || true
+      src/com/dsh/botctl/*.java $R_JAVA 2>&1 | grep -vE 'bootstrap class path|source value 8|target value 8|deprecat|^[0-9]+ warning' || true
 CNT=$(ls "$BUILD/classes/com/dsh/botctl/"*.class 2>/dev/null | wc -l)
 echo "  classes: $CNT"
 if [ "$CNT" -lt 5 ]; then
   echo "  --- full javac output ---"
-  "$JC" -encoding UTF-8 -source 8 -target 8 -bootclasspath "$AJ" -d /tmp/errc src/com/dsh/botctl/*.java 2>&1 | head -40
+  "$JC" -encoding UTF-8 -source 8 -target 8 -bootclasspath "$AJ" -d /tmp/errc \
+       src/com/dsh/botctl/*.java $R_JAVA 2>&1 | head -40
   die "compile failed"
 fi
 
 echo
-echo "===== 2) d8 ====="
+echo "===== 3) d8 ====="
 "$BT/d8" --lib "$AJ" --min-api 21 --output "$BUILD/dex" \
   "$BUILD/classes/com/dsh/botctl/"*.class 2>&1 | head -10
 [ -f "$BUILD/dex/classes.dex" ] || die "no classes.dex"
 echo "  classes.dex $(stat -c %s "$BUILD/dex/classes.dex") bytes"
-
-echo
-echo "===== 3) aapt2 link ====="
-"$BT/aapt2" link -o "$BUILD/base.apk" -I "$AJ" --manifest AndroidManifest.xml 2>&1 | head -10
-[ -f "$BUILD/base.apk" ] || die "aapt2 link failed"
-echo "  base.apk $(stat -c %s "$BUILD/base.apk") bytes"
 
 echo
 echo "===== 4) inject dex ====="

@@ -101,6 +101,7 @@ public class MainActivity extends Activity {
     private ScrollView logScroll;
     private final List<LogLine> logLines = new ArrayList<LogLine>();
     private Button[] logBtns;
+    private CheckBox nearbyNotify;
     private int logFilter = CAT_ALL;
     private String botUsername = "";
     private String currentServer = "";
@@ -304,6 +305,19 @@ public class MainActivity extends Activity {
 
         setContentView(rootWrap);
         selectTab(0);
+
+        // 上次开着通知的话，直接恢复后台监控（权限没给就不强求）
+        if (prefs.getBoolean(MonitorService.PREF_ENABLED, false)) {
+            boolean can = android.os.Build.VERSION.SDK_INT < 33
+                    || checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                    == android.content.pm.PackageManager.PERMISSION_GRANTED;
+            if (can) {
+                try {
+                    MonitorService.start(this);
+                } catch (Exception ignored) {
+                }
+            }
+        }
     }
 
     private void selectTab(int idx) {
@@ -731,6 +745,23 @@ public class MainActivity extends Activity {
             }
             v.addView(rowLl);
         }
+
+        // 附近玩家通知开关：开=启动后台监控服务，有人进视野就发系统通知
+        LinearLayout notifyRow = new LinearLayout(this);
+        notifyRow.setOrientation(LinearLayout.HORIZONTAL);
+        notifyRow.setPadding(0, dp(4), 0, dp(2));
+        nearbyNotify = new CheckBox(this);
+        nearbyNotify.setText("附近玩家通知");
+        nearbyNotify.setTextSize(13f);
+        nearbyNotify.setChecked(prefs.getBoolean(MonitorService.PREF_ENABLED, false));
+        nearbyNotify.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View x) {
+                setNearbyNotify(nearbyNotify.isChecked());
+            }
+        });
+        notifyRow.addView(nearbyNotify, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        v.addView(notifyRow);
 
         Button clear = btn("清空本页显示", new View.OnClickListener() {
             public void onClick(View x) {
@@ -1487,116 +1518,20 @@ public class MainActivity extends Activity {
 
     // ------------------------------------------------------- visual range block
 
-    private static final Pattern VR_ENTER = Pattern.compile(
-            "(?:\\[VisualRange\\]\\s*)?([A-Za-z0-9_|]+)\\s+entered visual range\\s*\\[([^\\]]+)\\]");
-    private static final Pattern VR_LEAVE = Pattern.compile(
-            "(?:\\[VisualRange\\]\\s*)?([A-Za-z0-9_|]+)\\s+left visual range");
-    private static final Pattern VR_NAME = Pattern.compile("Player Name\\s*\\n?\\s*(\\S+)");
-    private static final Pattern VR_COORDS = Pattern.compile("Coordinates\\s*\\n?\\s*\\[([^\\]]+)\\]");
-    private static final Pattern VR_ANY_COORDS = Pattern.compile("\\[\\s*(-?[0-9.]+)\\s*,\\s*(-?[0-9.]+)\\s*,\\s*(-?[0-9.]+)\\s*\\]");
-    private static final Pattern VR_BARE_COORDS = Pattern.compile("(-?[0-9.]+)\\s*,\\s*(-?[0-9.]+)\\s*,\\s*(-?[0-9.]+)");
-
-    // fragments state (ZenithProxy may emit the block as separate log messages)
-    private String vrReason = null;
-    private String vrName = null;
-    private String vrExpect = null;
+    // ------------------------------------------------------- visual range block
+    // 解析放在 Nearby 里，日志页和通知服务共用同一套规则，避免两处不一致。
+    private final Nearby vrNearby = new Nearby();
 
     /**
-     * @return null  -> not a visual-range message, handle normally
-     * ""           -> a fragment that was consumed
-     * otherwise    -> the composed single-line body
+     * @return null  -> 不是视野消息
+     *         ""    -> 被吞掉的碎片
+     *         其它  -> 拼好的中文一行
      */
     private String visualRangeStep(String msg) {
-        String m = msg == null ? "" : msg.trim();
-
-        // module one-liners
-        java.util.regex.Matcher en = VR_ENTER.matcher(m);
-        if (en.find()) {
-            return "有玩家进入视野 / 玩家名 / " + en.group(1) + " / 玩家坐标" + coordsInts(en.group(2));
-        }
-        java.util.regex.Matcher lv = VR_LEAVE.matcher(m);
-        if (lv.find()) {
-            return "有玩家离开视野 / 玩家名 / " + lv.group(1);
-        }
-
-        // whole block in one message
-        if (m.contains("Visual Range") && m.indexOf('\n') >= 0) {
-            String reason = m.contains("Logout") ? "有玩家在视野内下线" : "有玩家进入视野";
-            java.util.regex.Matcher nm = VR_NAME.matcher(m);
-            java.util.regex.Matcher cd = VR_COORDS.matcher(m);
-            if (cd.find()) {
-                String name = nm.find() ? nm.group(1) : "?";
-                return reason + " / 玩家名 / " + name + " / 玩家坐标" + coordsInts(cd.group(1));
-            }
-        }
-
-        // fragment-by-fragment path
-        if (m.equals("Player In Visual Range")) {
-            startVr("有玩家进入视野");
-            return "";
-        }
-        if (m.equals("Player Logout In Visual Range")) {
-            startVr("有玩家在视野内下线");
-            return "";
-        }
-        if (vrReason == null) return null;
-
-        if (m.startsWith("Player Name")) {
-            vrExpect = "name";
-            return "";
-        }
-        if (m.startsWith("Player UUID")) {
-            vrExpect = "uuid";
-            return "";
-        }
-        if (m.startsWith("Coordinates")) {
-            vrExpect = "coords";
-            return "";
-        }
-        if ("name".equals(vrExpect)) {
-            vrName = m;
-            vrExpect = null;
-            return "";
-        }
-        if ("uuid".equals(vrExpect)) {
-            vrExpect = null;      // UUID line dropped on purpose
-            return "";
-        }
-        if ("coords".equals(vrExpect)) {
-            String out = vrReason + " / 玩家名 / " + (vrName == null ? "?" : vrName)
-                    + " / 玩家坐标" + coordsInts(m);
-            vrReason = null;
-            vrName = null;
-            vrExpect = null;
-            return out;
-        }
-        return null;
-    }
-
-    private void startVr(String reason) {
-        vrReason = reason;
-        vrName = null;
-        vrExpect = null;
-    }
-
-    /** "245.72, 73.0, 201.13" (with or without brackets) -> "[245, 73, 201]" */
-    private static String coordsInts(String raw) {
-        if (raw == null) return "[?]";
-        String s = raw.trim();
-        java.util.regex.Matcher m = VR_ANY_COORDS.matcher(s);
-        if (!m.find()) {
-            // the multi-line block prints a bare "x, y, z" without brackets
-            m = VR_BARE_COORDS.matcher(s);
-            if (!m.find()) return "[" + s + "]";
-        }
-        try {
-            long x = Math.round(Double.parseDouble(m.group(1)));
-            long y = Math.round(Double.parseDouble(m.group(2)));
-            long z = Math.round(Double.parseDouble(m.group(3)));
-            return "[" + x + ", " + y + ", " + z + "]";
-        } catch (Exception e) {
-            return "[" + s + "]";
-        }
+        Nearby.Event ev = vrNearby.feed(msg);
+        if (ev == null) return null;
+        if (ev.type == Nearby.FRAGMENT) return "";
+        return Nearby.describe(ev);
     }
 
     /**
@@ -1804,6 +1739,57 @@ public class MainActivity extends Activity {
         }
     }
 
+    // ------------------------------------------------------- 附近玩家通知开关
+
+    private void setNearbyNotify(boolean want) {
+        prefs.edit().putBoolean(MonitorService.PREF_ENABLED, want).apply();
+        if (!want) {
+            MonitorService.stop(this);
+            toast("已关闭附近玩家通知");
+            return;
+        }
+        // Android 13+ 需要运行时授权通知
+        if (android.os.Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 9101);
+            return;
+        }
+        startMonitor();
+    }
+
+    private void startMonitor() {
+        if (edPass.getText().toString().length() == 0) {
+            toast("先在「账号」页填好面板密码，通知服务要用它");
+            if (nearbyNotify != null) nearbyNotify.setChecked(false);
+            prefs.edit().putBoolean(MonitorService.PREF_ENABLED, false).apply();
+            return;
+        }
+        try {
+            MonitorService.start(this);
+            toast("通知已开启，App 可切后台");
+        } catch (Exception e) {
+            toast("启动通知服务失败: " + e.getMessage());
+            if (nearbyNotify != null) nearbyNotify.setChecked(false);
+            prefs.edit().putBoolean(MonitorService.PREF_ENABLED, false).apply();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
+        super.onRequestPermissionsResult(code, perms, results);
+        if (code == 9101) {
+            boolean granted = results.length > 0
+                    && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
+            if (granted) {
+                startMonitor();
+            } else {
+                toast("没给通知权限，开不了提醒");
+                if (nearbyNotify != null) nearbyNotify.setChecked(false);
+                prefs.edit().putBoolean(MonitorService.PREF_ENABLED, false).apply();
+            }
+        }
+    }
     private void renderLog() {
         if (logView == null) return;
 

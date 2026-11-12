@@ -1,19 +1,19 @@
-# BotCtl 5.7 — 手机控制台使用说明
+# BotCtl 5.8 — 手机控制台使用说明
 
-文件：`BotCtl-5.7.apk`（61,839 字节，SHA256 `596ACFCFF1507AC49C0FE278389E6CACA5CC6562BA0F5551AB119716B61D773E`）
-包名 `com.dsh.botctl`，版本 5.7（versionCode 37），minSdk 21（Android 5.0+），targetSdk 33
+文件：`BotCtl-5.8.apk`（74,603 字节，SHA256 `983ED395B2A92972D553B1061EFEC15F56C216C1552411EC47F1226C7DB5509E`）
+包名 `com.dsh.botctl`，版本 5.8（versionCode 38），minSdk 21（Android 5.0+），targetSdk 33
 签名证书 SHA-256：`d25e22660aa215807195454c6299ca51f7683ffb8178d5ad8cbbd6071d0d3c99`
 
 ---
 
 ## 一、安装
 
-1. 把 `BotCtl-5.7.apk` 传到手机（微信/QQ 传文件、USB 拷贝、或手机直接下载均可）
+1. 把 `BotCtl-5.8.apk` 传到手机（微信/QQ 传文件、USB 拷贝、或手机直接下载均可）
 2. 点击安装。首次会提示「未知来源应用」——允许你使用的文件管理器/浏览器安装即可
 3. 应用名：**Bot控制台**
 
 > 4.2 起的各版本用同一签名证书，**可直接覆盖升级**。
-> 若你手机上还是 4.1（或更早），那一版是用已被删除的旧密钥签的，**必须先卸载**再装 5.7。
+> 若你手机上还是 4.1（或更早），那一版是用已被删除的旧密钥签的，**必须先卸载**再装 5.8。
 
 ---
 
@@ -182,6 +182,37 @@ ZenithProxy 也写明 `Cannot join online mode server with offline auth`。
 - 保留最近 600 条；「清空本页显示」只清本地显示
 - 中文翻译由约 100 条正则规则完成（英文原文未命中时原样保留，不会丢信息）
 - 来源：`GET /api/logs/stream`，断线后 2.5 秒自动重连
+
+### 「日志」页 — 附近玩家通知（5.8 新增）
+
+分类按钮下面多了一行小开关：**☐ 附近玩家通知**。
+
+打开后，**有玩家进入视野就会给你发一条系统通知**，即使 App 在后台、屏幕关着也能收到。
+
+**通知长这样**：
+
+```
+标题：||SomePlayer
+正文：距离: 9 格   坐标(208 73 204)
+```
+
+- 标题是玩家名
+- 距离是**三维直线距离**（用机器人当前坐标和对方坐标算，取整）
+- 坐标按你要求的空格格式 `(x y z)`
+- 玩家在视野内**下线**也会通知，正文末尾加 `(已下线)`
+- **离开视野不通知**（只在"进入/下线"时提醒，免得刷屏）
+
+**实现方式**（值得知道，否则会以为它"有时候不灵"）：
+
+- 通知由**前台服务**（`MonitorService`）发出，它保持一条日志流连接
+- 因此会有一条常驻通知「BotCtl 监控中」，这是 Android 的要求，不是 bug
+- **切后台、锁屏都继续工作**；但如果你在系统里手动"强行停止"应用，服务会被杀掉
+- 开关状态存在本地，**重开 App 会自动恢复**监控
+- 首次打开会请求通知权限（Android 13+），拒绝就收不到
+- 面板密码为空时不允许开启（服务要用它登录面板）
+
+> 部分国产系统（MIUI/EMUI/ColorOS 等）有额外的后台限制，需要在系统设置里
+> 允许「自启动」或把电池策略设为「不限制」，否则锁屏一段时间后可能被清掉。
 
 ### 「账号」页 — 快捷账号切换
 
@@ -360,7 +391,7 @@ App 用自己时钟探测几个相邻 bucket，并从 `generated` 字段自学�
 ```bash
 ssh root@YOUR_SERVER_IP
 cd /root/botctl4
-bash build_apk.sh          # 输出 /root/botctl4/BotCtl-5.7.apk
+bash build_apk.sh          # 输出 /root/botctl4/BotCtl-5.8.apk
 ```
 
 工具链在 `/opt/android/`：`build-tools`（aapt2 / d8 / zipalign / apksigner）+ `platform-34/android.jar`。
@@ -414,7 +445,7 @@ java.lang.NullPointerException: Cannot invoke "String.length()" because "<parame
 
 | 路径 | 说明 |
 | --- | --- |
-| `BotCtl-5.7.apk` | 成品安装包 |
+| `BotCtl-5.8.apk` | 成品安装包 |
 | `app4/src/com/dsh/botctl/MainActivity.java` | 主界面与业务逻辑（含日志翻译/分类） |
 | `app4/src/com/dsh/botctl/Api.java` | HTTP / SSE / 解析 |
 | `app4/src/com/dsh/botctl/PingChart.java` | 延迟波动自绘控件 |
