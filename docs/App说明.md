@@ -1,19 +1,19 @@
-# BotCtl 5.10 — 手机控制台使用说明
+# BotCtl 5.11 — 手机控制台使用说明
 
-文件：`BotCtl-5.10.apk`（95,083 字节，SHA256 `3BFCC0FBE12754FF87B3FC22F081A8D99B9F11197284922C616228FA114E0AFA`）
-包名 `com.dsh.botctl`，版本 5.10（versionCode 40），minSdk 21（Android 5.0+），targetSdk 33
+文件：`BotCtl-5.11.apk`（99,179 字节，SHA256 `8521F65F79DFF6FE1ABC3D5EE6CA7A58EB1C60D32306BA92B6DDB325A6D5A545`）
+包名 `com.dsh.botctl`，版本 5.11（versionCode 41），minSdk 21（Android 5.0+），targetSdk 33
 签名证书 SHA-256：`d25e22660aa215807195454c6299ca51f7683ffb8178d5ad8cbbd6071d0d3c99`
 
 ---
 
 ## 一、安装
 
-1. 把 `BotCtl-5.10.apk` 传到手机（微信/QQ 传文件、USB 拷贝、或手机直接下载均可）
+1. 把 `BotCtl-5.11.apk` 传到手机（微信/QQ 传文件、USB 拷贝、或手机直接下载均可）
 2. 点击安装。首次会提示「未知来源应用」——允许你使用的文件管理器/浏览器安装即可
 3. 应用名：**Bot控制台**
 
 > 4.2 起的各版本用同一签名证书，**可直接覆盖升级**。
-> 若你手机上还是 4.1（或更早），那一版是用已被删除的旧密钥签的，**必须先卸载**再装 5.10。
+> 若你手机上还是 4.1（或更早），那一版是用已被删除的旧密钥签的，**必须先卸载**再装 5.11。
 
 ---
 
@@ -201,7 +201,8 @@ ZenithProxy 也写明 `Cannot join online mode server with offline auth`。
 - 坐标顺序是 `X Y Z`：`(208 73 204)` = X 轴 208、Y 轴 73、Z 轴 204
 - **只有被检测玩家自己的坐标变了才会再通知**（与机器人走到哪无关；旧版用距离判断，
   机器人一动距离就变，所以站着不动的玩家被反复提醒）
-- 玩家离开视野/下线**本身不通知**，但会记住"他离开过"，他回来时补一条
+- 玩家离开视野/下线**本身不通知**；他回来时如果坐标没变，也不通知
+- 该服实测有人会在视野边缘每 2 秒进出一次（坐标不变）——这种情况完全不会弹（5.11）
 **实现方式**（值得知道，否则会以为它"有时候不灵"）：
 
 - 通知由**前台服务**（`MonitorService`）发出，它保持一条日志流连接
@@ -391,7 +392,7 @@ App 用自己时钟探测几个相邻 bucket，并从 `generated` 字段自学�
 ```bash
 ssh root@YOUR_SERVER_IP
 cd /root/botctl4
-bash build_apk.sh          # 输出 /root/botctl4/BotCtl-5.10.apk
+bash build_apk.sh          # 输出 /root/botctl4/BotCtl-5.11.apk
 ```
 
 工具链在 `/opt/android/`：`build-tools`（aapt2 / d8 / zipalign / apksigner）+ `platform-34/android.jar`。
@@ -445,7 +446,7 @@ java.lang.NullPointerException: Cannot invoke "String.length()" because "<parame
 
 | 路径 | 说明 |
 | --- | --- |
-| `BotCtl-5.10.apk` | 成品安装包 |
+| `BotCtl-5.11.apk` | 成品安装包 |
 | `app4/src/com/dsh/botctl/MainActivity.java` | 主界面与业务逻辑（含日志翻译/分类） |
 | `app4/src/com/dsh/botctl/Api.java` | HTTP / SSE / 解析 |
 | `app4/src/com/dsh/botctl/PingChart.java` | 延迟波动自绘控件 |

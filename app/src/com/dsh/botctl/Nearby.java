@@ -42,9 +42,9 @@ public class Nearby {
     private static final Pattern P_NAME = Pattern.compile("Player Name\\s*\\n?\\s*(\\S+)");
     private static final Pattern P_COORDS = Pattern.compile("Coordinates\\s*\\n?\\s*\\[([^\\]]+)\\]");
     private static final Pattern P_BRACKET = Pattern.compile(
-            "\\[\\s*(-?[0-9.]+)\\s*,\\s*(-?[0-9.]+)\\s*,\\s*(-?[0-9.]+)\\s*\\]");
+            "\\[\\s*(-?[0-9.]+(?:[eE][+-]?[0-9]+)?)\\s*,\\s*(-?[0-9.]+(?:[eE][+-]?[0-9]+)?)\\s*,\\s*(-?[0-9.]+(?:[eE][+-]?[0-9]+)?)\\s*\\]");
     private static final Pattern P_BARE = Pattern.compile(
-            "(-?[0-9.]+)\\s*,\\s*(-?[0-9.]+)\\s*,\\s*(-?[0-9.]+)");
+            "(-?[0-9.]+(?:[eE][+-]?[0-9]+)?)\\s*,\\s*(-?[0-9.]+(?:[eE][+-]?[0-9]+)?)\\s*,\\s*(-?[0-9.]+(?:[eE][+-]?[0-9]+)?)");
 
     private int reason = NONE;
     private String pendingName;
@@ -80,9 +80,18 @@ public class Nearby {
             return ev;
         }
 
-        // 整块挤在一条消息里
+        // 整块挤在一条消息里（logger=Terminal 的多行块）
         if (m.contains("Visual Range") && m.indexOf('\n') >= 0) {
-            int reasonType = m.contains("Logout") ? LOGOUT : ENTER;
+            // 注意：离开视野的块也叫 "... Visual Range"，只排除 Logout 会把
+            // "Player Left Visual Range" 误判成进入，从而反复通知。
+            int reasonType;
+            if (m.contains("Logout")) {
+                reasonType = LOGOUT;
+            } else if (m.contains("Left Visual Range")) {
+                reasonType = LEAVE;
+            } else {
+                reasonType = ENTER;
+            }
             Matcher nm = P_NAME.matcher(m);
             Matcher cd = P_COORDS.matcher(m);
             if (cd.find()) {
@@ -146,7 +155,15 @@ public class Nearby {
         return null;
     }
 
-    /** 从 "245.7, 73.0, 201.1" 或 "[245.7, 73.0, 201.1]" 里取整数坐标。 */
+    /**
+     * 从 "245.7, 73.0, 201.1" / "[245.7, 73.0, 201.1]" / "[8440371.9, 70.0, 1.16E7]"
+     * 里取整数坐标。
+     *
+     * 两个坑：
+     * 1. Module 日志用**科学计数法**（1.1622633266436212E7），只认 [0-9.] 会把 Z 读成 1。
+     * 2. 取整必须用 floor：同一事件 Terminal 日志给的是 8440371（截断），
+     *    Module 给 8440371.9，用 round 会变成 8440372，两边对不上就永远"坐标变了"。
+     */
     private static void parseInto(Event ev, String raw) {
         if (raw == null) return;
         String s = raw.trim();
@@ -156,9 +173,9 @@ public class Nearby {
             if (!m.find()) return;
         }
         try {
-            ev.x = (int) Math.round(Double.parseDouble(m.group(1)));
-            ev.y = (int) Math.round(Double.parseDouble(m.group(2)));
-            ev.z = (int) Math.round(Double.parseDouble(m.group(3)));
+            ev.x = (int) Math.floor(Double.parseDouble(m.group(1)));
+            ev.y = (int) Math.floor(Double.parseDouble(m.group(2)));
+            ev.z = (int) Math.floor(Double.parseDouble(m.group(3)));
         } catch (Exception ignored) {
         }
     }
