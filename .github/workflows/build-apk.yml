@@ -88,6 +88,39 @@ jobs:
           echo "signed=$SIGNED" >> "$GITHUB_OUTPUT"
           sha256sum "$ASSET"
 
+      # 从 CHANGELOG.md 摘出本版本的段落，拼成 Release 说明。
+      # 约定：CHANGELOG 里必须有 `## v<版本>` 这一节，否则 Release 里会提示缺失。
+      - name: 生成本版更新说明
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          python3 - "$VER" > /tmp/release_body.md <<'PY'
+          import re, sys
+          ver = sys.argv[1]
+          try:
+              txt = open('CHANGELOG.md', encoding='utf-8').read()
+          except FileNotFoundError:
+              txt = ''
+          m = re.search(r'(?ms)^##\s*v?' + re.escape(ver) + r'\b.*?(?=^##\s|\Z)', txt)
+          print("**BotCtl %s**" % ver)
+          print()
+          print("手机端管理 ZenithProxy 机器人：Android App + 服务器部署脚本 + 地图/喊话服务。")
+          print()
+          print("## 本次改动")
+          print()
+          print(m.group(0).strip() if m else "（CHANGELOG.md 里没有 %s 的条目）" % ver)
+          print()
+          print("---")
+          print()
+          print("- 附件 `BotCtl-*.apk`：直接安装（Android 5.0+）")
+          print("- 部署：[docs/部署教程.md](https://github.com/link-cle/zenith-botctl/blob/main/docs/部署教程.md)")
+          print("- App 用法：[docs/App说明.md](https://github.com/link-cle/zenith-botctl/blob/main/docs/App说明.md)")
+          print("- 全部版本：[CHANGELOG.md](https://github.com/link-cle/zenith-botctl/blob/main/CHANGELOG.md)")
+          print("- 本项目代码 MIT；运行时依赖 ZenithProxy / ZenithProxy-WebUI（AGPL-3.0），不随仓库分发")
+          PY
+          echo "--- 生成结果 ---"
+          cat /tmp/release_body.md
+
       - name: 发布 Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
@@ -96,13 +129,4 @@ jobs:
           name: BotCtl ${{ github.ref_name }}
           draft: false
           prerelease: false
-          body: |
-            **BotCtl ${{ github.ref_name }}**
-
-            手机端管理 ZenithProxy 机器人：Android App + 服务器部署脚本 + 地图/喊话服务。
-
-            - 附件 `BotCtl-*.apk`：直接安装（Android 5.0+）
-            - 部署方法见 [docs/部署教程.md](https://github.com/link-cle/zenith-botctl/blob/main/docs/部署教程.md)
-            - App 用法见 [docs/App说明.md](https://github.com/link-cle/zenith-botctl/blob/main/docs/App说明.md)
-            - 签名方式：${{ steps.pick.outputs.signed }}
-            - 本项目代码 MIT；运行时依赖 ZenithProxy / ZenithProxy-WebUI（AGPL-3.0），不随仓库分发
+          body_path: /tmp/release_body.md
