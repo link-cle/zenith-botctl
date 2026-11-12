@@ -16,12 +16,9 @@ import org.json.JSONObject;
  * 为什么要前台服务：Android 在应用切到后台后会冻结/回收普通进程，日志流会断，
  * 通知就永远等不到。前台服务带一条常驻通知，系统才允许它长期活着。
  *
- * 距离怎么算：dashboard 里没有坐标字段（只有 health/food），所以必须用
- * `status` 命令的 `Coordinates: ||[x, y, z]||`。之前误用 dashboard 导致读不到
- * 坐标、退回 [0,0,0]，算出来的距离是从原点起的，完全不对——这里改掉了。
- *
- * 去重：同一个玩家只在「第一次进入视野」和「位置相比上次通知移动超过 10 格」时
- * 才提醒。ZenithProxy 会反复输出 enter 事件，不做去重就会一直弹。
+ * 通知去重：只看被检测玩家自己的坐标有没有变。早先版本用「机器人与他的距离」判断，
+ * 机器人一走距离就变，同一个站着不动的玩家会被反复提醒——这个做法已废弃。
+ * 通知正文也不再显示距离，只有玩家坐标（取自附近玩家日志那一条）。
  */
 public class MonitorService extends Service {
 
@@ -29,8 +26,9 @@ public class MonitorService extends Service {
     public static final String PREFS_NAME = "botctl4";
     public static final String PREF_ENABLED = "nearbyNotify";
 
-    /** 机器人坐标缓存时间（毫秒）。 */
-    private static final long POS_TTL_MS = 20_000L;
+    /** 只处理这个时间窗内的日志（毫秒）。超出视为历史重放，直接忽略。 */
+    private static final long REPLAY_TOLERANCE_MS = 120_000L;
+
 
     private volatile boolean running;
     private Thread worker;
@@ -82,9 +80,6 @@ public class MonitorService extends Service {
     private void loop() {
         final Nearby nearby = new Nearby();
         final NotifyGate gate = new NotifyGate();
-        // 机器人坐标缓存
-        final int[][] botPos = new int[1][];
-        final long[] botPosAt = new long[]{0L};
 
         while (running) {
             try {
@@ -113,29 +108,20 @@ public class MonitorService extends Service {
                 boolean[] run = new boolean[]{true};
                 api.streamLogs(run, new Api.LogSink() {
                     public void onLog(JSONObject entry) {
+                        // 日志流重连时插件会重放历史，老条目不该触发通知
+                        long ts = entry.optLong("timestamp", 0L);
+                        if (ts > 0L) {
+                            long skew = Math.abs(System.currentTimeMillis() - ts);
+                            if (skew > REPLAY_TOLERANCE_MS) return;
+                        }
                         String msg = entry.optString("message", "");
                         Nearby.Event ev = nearby.feed(msg);
                         if (ev == null || ev.type == Nearby.FRAGMENT) return;
-                        if (ev.type != Nearby.ENTER && ev.type != Nearby.LOGOUT) return;
+                        if (ev.type != Nearby.ENTER && ev.type != Nearby.LEAVE && ev.type != Nearby.LOGOUT) return;
 
-                        // 拿机器人坐标（缓存 20 秒，避免每条事件都发命令）
-                        long now = System.currentTimeMillis();
-                        if (botPos[0] == null || now - botPosAt[0] > POS_TTL_MS) {
-                            int[] pos = readBotPos(api);
-                            if (pos != null) {
-                                botPos[0] = pos;
-                                botPosAt[0] = now;
-                            }
-                        }
-
-                        int dist = -1;
-                        if (botPos[0] != null) {
-                            dist = Nearby.distance(ev, botPos[0][0], botPos[0][1], botPos[0][2]);
-                        }
-
-                        // 去重：同一玩家只在首次进入、或位移超过 10 格时才提醒
+                        // 去重：只看这个玩家自己的坐标有没有变，与机器人位置无关
                         if (gate.shouldNotify(ev)) {
-                            notifyOne(ev, dist);
+                            notifyOne(ev);
                         }
                     }
 
@@ -150,28 +136,14 @@ public class MonitorService extends Service {
         }
     }
 
-    private void notifyOne(Nearby.Event ev, int dist) {
+    private void notifyOne(Nearby.Event ev) {
         notifiedCount++;
-        Notifier.nearby(this, ev.name, dist, ev.coordsText(), ev.type == Nearby.LOGOUT);
+        Notifier.nearby(this, ev.name, ev.coordsText());
         try {
             startForeground(Notifier.ID_WATCH,
                     Notifier.watch(this, "监听中 · 已提醒 " + notifiedCount + " 次"));
         } catch (Exception ignored) {
         }
-    }
-
-    /** 用 status 命令取机器人坐标：Coordinates: ||[x, y, z]|| */
-    private int[] readBotPos(Api api) {
-        try {
-            String st = api.commandText("status");
-            Integer[] c = Api.parseCoords(st);
-            if (c != null && c.length >= 3 && c[0] != null && c[1] != null && c[2] != null) {
-                return new int[]{c[0], c[1], c[2]};
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "读坐标失败: " + e);
-        }
-        return null;
     }
 
     private void idle(int seconds) {

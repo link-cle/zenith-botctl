@@ -50,21 +50,15 @@ public class Notifier {
     /**
      * 附近玩家通知。
      *
-     * 标题是玩家名，正文是「距离: N 格   坐标(x y z)」——按用户要求的排版。
+     * 标题是玩家名，正文只有玩家坐标「坐标(x y z)」——距离已按用户要求移除，
+     * 坐标直接取自附近玩家日志里那一条的内容。
      */
-    public static void nearby(Context c, String name, int dist, String coordsText, boolean isLogout) {
+    public static void nearby(Context c, String name, String coordsText) {
         ensureChannels(c);
         NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm == null) return;
 
-        StringBuilder sb = new StringBuilder();
-        if (dist >= 0) {
-            sb.append("距离: ").append(dist).append(" 格");
-        } else {
-            sb.append("距离: ? 格");
-        }
-        sb.append("   坐标").append(coordsText);
-        if (isLogout) sb.append("   (已下线)");
+        String sb = "坐标" + coordsText;
 
         Notification.Builder b;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -76,8 +70,8 @@ public class Notifier {
         }
         b.setSmallIcon(smallIcon())
                 .setContentTitle(name)
-                .setContentText(sb.toString())
-                .setStyle(new Notification.BigTextStyle().bigText(sb.toString()))
+                .setContentText(sb)
+                .setStyle(new Notification.BigTextStyle().bigText(sb))
                 .setAutoCancel(true)
                 .setContentIntent(openApp(c));
 

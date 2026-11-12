@@ -1,19 +1,19 @@
-# BotCtl 5.9 — 手机控制台使用说明
+# BotCtl 5.10 — 手机控制台使用说明
 
-文件：`BotCtl-5.9.apk`（99,179 字节，SHA256 `A13A79F0335754E3700BB18FD9FE341D916A592ABD04768B7093B8F645D33705`）
-包名 `com.dsh.botctl`，版本 5.9（versionCode 39），minSdk 21（Android 5.0+），targetSdk 33
+文件：`BotCtl-5.10.apk`（95,083 字节，SHA256 `3BFCC0FBE12754FF87B3FC22F081A8D99B9F11197284922C616228FA114E0AFA`）
+包名 `com.dsh.botctl`，版本 5.10（versionCode 40），minSdk 21（Android 5.0+），targetSdk 33
 签名证书 SHA-256：`d25e22660aa215807195454c6299ca51f7683ffb8178d5ad8cbbd6071d0d3c99`
 
 ---
 
 ## 一、安装
 
-1. 把 `BotCtl-5.9.apk` 传到手机（微信/QQ 传文件、USB 拷贝、或手机直接下载均可）
+1. 把 `BotCtl-5.10.apk` 传到手机（微信/QQ 传文件、USB 拷贝、或手机直接下载均可）
 2. 点击安装。首次会提示「未知来源应用」——允许你使用的文件管理器/浏览器安装即可
 3. 应用名：**Bot控制台**
 
 > 4.2 起的各版本用同一签名证书，**可直接覆盖升级**。
-> 若你手机上还是 4.1（或更早），那一版是用已被删除的旧密钥签的，**必须先卸载**再装 5.9。
+> 若你手机上还是 4.1（或更早），那一版是用已被删除的旧密钥签的，**必须先卸载**再装 5.10。
 
 ---
 
@@ -193,17 +193,15 @@ ZenithProxy 也写明 `Cannot join online mode server with offline auth`。
 
 ```
 标题：||SomePlayer
-正文：距离: 9 格   坐标(208 73 204)
+正文：坐标(208 73 204)
 ```
 
 - 标题是玩家名
-- 距离是**三维直线距离**（用机器人当前坐标和对方坐标算，取整）
-- 坐标按你要求的空格格式 `(x y z)`
-- 玩家在视野内**下线**也会通知，正文末尾加 `(已下线)`
-- **同一玩家不会反复弹**：只在首次进入视野时提醒；之后要等他**移动超过 10 格**才会再提醒一次（5.9）
-- 距离取不到时显示 `距离: ? 格`，不会瞎报一个数字（5.9 修复）
-- **离开视野不通知**（只在"进入/下线"时提醒，免得刷屏）
-
+- 正文**只有玩家坐标**（5.10 起去掉了距离）——坐标直接取自附近玩家日志里那一条
+- 坐标顺序是 `X Y Z`：`(208 73 204)` = X 轴 208、Y 轴 73、Z 轴 204
+- **只有被检测玩家自己的坐标变了才会再通知**（与机器人走到哪无关；旧版用距离判断，
+  机器人一动距离就变，所以站着不动的玩家被反复提醒）
+- 玩家离开视野/下线**本身不通知**，但会记住"他离开过"，他回来时补一条
 **实现方式**（值得知道，否则会以为它"有时候不灵"）：
 
 - 通知由**前台服务**（`MonitorService`）发出，它保持一条日志流连接
@@ -393,7 +391,7 @@ App 用自己时钟探测几个相邻 bucket，并从 `generated` 字段自学�
 ```bash
 ssh root@YOUR_SERVER_IP
 cd /root/botctl4
-bash build_apk.sh          # 输出 /root/botctl4/BotCtl-5.9.apk
+bash build_apk.sh          # 输出 /root/botctl4/BotCtl-5.10.apk
 ```
 
 工具链在 `/opt/android/`：`build-tools`（aapt2 / d8 / zipalign / apksigner）+ `platform-34/android.jar`。
@@ -447,7 +445,7 @@ java.lang.NullPointerException: Cannot invoke "String.length()" because "<parame
 
 | 路径 | 说明 |
 | --- | --- |
-| `BotCtl-5.9.apk` | 成品安装包 |
+| `BotCtl-5.10.apk` | 成品安装包 |
 | `app4/src/com/dsh/botctl/MainActivity.java` | 主界面与业务逻辑（含日志翻译/分类） |
 | `app4/src/com/dsh/botctl/Api.java` | HTTP / SSE / 解析 |
 | `app4/src/com/dsh/botctl/PingChart.java` | 延迟波动自绘控件 |
