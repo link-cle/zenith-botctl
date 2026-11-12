@@ -23,6 +23,7 @@ import json
 import os
 import random
 import re
+import string
 import sys
 import threading
 import time
@@ -136,6 +137,7 @@ def default_chat_cfg():
         "intervalSec": 300,
         "jitterSec": 30,
         "rotate": True,
+        "letterSuffix": True,      # 每条末尾加一个随机字母
         "messages": [],
         "idx": 0,
         "nextAt": 0.0,
@@ -174,6 +176,7 @@ def chat_state(cfg):
         "intervalSec": int(cfg["intervalSec"]),
         "jitterSec": int(cfg["jitterSec"]),
         "rotate": bool(cfg["rotate"]),
+        "letterSuffix": bool(cfg.get("letterSuffix", True)),
         "messages": list(cfg["messages"]),
         "count": len(cfg["messages"]),
         "idx": int(cfg.get("idx", 0)),
@@ -184,6 +187,28 @@ def chat_state(cfg):
         "now": time.time(),
         "minInterval": MIN_INTERVAL,
     }
+
+
+def apply_letter_suffix(text, cfg):
+    """在消息末尾补一个随机小写英文字母。
+
+    目的：让每条内容都不同。不少服务器会拦截"连续两条一模一样"的消息，
+    加上随机后缀就绕过了，同时也避免被当成定时机器人。
+
+    额外规则：不会和上一条用同一个字母。否则随机撞车时，若两条基础文案
+    也相同，就会产生完全一样的消息（26 个字母里撞一次的概率约 4%）。
+    """
+    if not cfg.get("letterSuffix", True):
+        return text
+    prev = cfg.get("lastSuffix") or ""
+    letter = random.choice(string.ascii_lowercase)
+    for _ in range(5):
+        if letter != prev:
+            break
+        letter = random.choice(string.ascii_lowercase)
+    cfg["lastSuffix"] = letter
+    # 留一位给字母，保证整体不超长
+    return text[:MAX_TEXT - 1] + letter
 
 
 def next_interval(cfg):
@@ -208,6 +233,7 @@ def send_one(cfg, index=None):
     else:
         idx = int(index) % len(msgs)
     text = str(msgs[idx])[:MAX_TEXT]
+    text = apply_letter_suffix(text, cfg)
     out = panel_command("sendMessage " + text)
     if out is None:
         return False, "面板命令失败（机器人可能离线）"
@@ -412,6 +438,9 @@ class Handler(BaseHTTPRequestHandler):
                     changed = True
                 if "rotate" in payload:
                     cfg["rotate"] = bool(payload["rotate"])
+                    changed = True
+                if "letterSuffix" in payload:
+                    cfg["letterSuffix"] = bool(payload["letterSuffix"])
                     changed = True
                 if "enabled" in payload:
                     want = bool(payload["enabled"])

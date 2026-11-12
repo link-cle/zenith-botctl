@@ -122,7 +122,10 @@ public class MainActivity extends Activity {
     private TextView viaState;
     // ---- chat tab（定时喊话）
     private TextView chatStatus;
-    private EditText chatMsgs, chatSec, chatJitter;    private final java.util.List<Button> viaVersionBtns = new java.util.ArrayList<Button>();
+    private EditText chatMsgs, chatSec, chatJitter;
+    private CheckBox chatSuffix;
+
+    private final java.util.List<Button> viaVersionBtns = new java.util.ArrayList<Button>();
     private final java.util.List<String> viaVersionLabels = new java.util.ArrayList<String>();
     private static final String[] VIA_VERSIONS = {
             "auto", "1.21.4", "1.21.1", "1.21", "1.20.6", "1.20.4", "1.20.2", "1.20.1", "1.20",
@@ -2669,6 +2672,12 @@ public class MainActivity extends Activity {
         chatJitter = toolInput("抖动（秒）");
         r2.addView(chatJitter, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
+        chatSuffix = new CheckBox(this);
+        chatSuffix.setText("末尾随机加一个字母（让每条都不同，防被拦重复消息）");
+        chatSuffix.setTextSize(13f);
+        chatSuffix.setChecked(true);
+        v.addView(chatSuffix);
+
         v.addView(label("消息内容（一行一条，轮流发）"));
         chatMsgs = new EditText(this);
         chatMsgs.setHint("第一行……\n第二行……");
@@ -2715,6 +2724,7 @@ public class MainActivity extends Activity {
                 sb.append("　间隔: ").append(sec).append(" 秒");
                 sb.append("　抖动: ").append(res.optInt("jitterSec", 0)).append(" 秒");
                 sb.append("\n消息: ").append(cnt).append(" 条　已发: ").append(sent).append(" 次");
+                sb.append("　后缀字母: ").append(res.optBoolean("letterSuffix", true) ? "开" : "关");
                 if (on && nextAt > now) {
                     long left = (long) (nextAt - now);
                     sb.append("\n下一条: ").append(left / 60).append(" 分 ").append(left % 60).append(" 秒后");
@@ -2729,6 +2739,9 @@ public class MainActivity extends Activity {
                 }
                 if (chatJitter != null && chatJitter.getText().toString().trim().length() == 0) {
                     chatJitter.setText(String.valueOf(res.optInt("jitterSec", 0)));
+                }
+                if (chatSuffix != null) {
+                    chatSuffix.setChecked(res.optBoolean("letterSuffix", true));
                 }
                 if (chatMsgs != null && chatMsgs.getText().toString().trim().length() == 0) {
                     JSONArray arr = res.optJSONArray("messages");
@@ -2804,6 +2817,7 @@ public class MainActivity extends Activity {
             p.put("messages", arr);
             p.put("intervalSec", sec);
             p.put("jitterSec", jitter);
+            p.put("letterSuffix", chatSuffix != null && chatSuffix.isChecked());
         } catch (Exception ignored) {
         }
         helperPost("/api/chat/set", p, new HelperCb() {
