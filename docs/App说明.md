@@ -1,19 +1,19 @@
-# BotCtl 5.11 — 手机控制台使用说明
+# BotCtl 5.12 — 手机控制台使用说明
 
-文件：`BotCtl-5.11.apk`（99,179 字节，SHA256 `8521F65F79DFF6FE1ABC3D5EE6CA7A58EB1C60D32306BA92B6DDB325A6D5A545`）
-包名 `com.dsh.botctl`，版本 5.11（versionCode 41），minSdk 21（Android 5.0+），targetSdk 33
+文件：`BotCtl-5.12.apk`（99,179 字节，SHA256 `20F2B2F220A72A76A503CC2D678ADF2185A7104F499AD50FDC162449B7EB427A`）
+包名 `com.dsh.botctl`，版本 5.12（versionCode 42），minSdk 21（Android 5.0+），targetSdk 33
 签名证书 SHA-256：`d25e22660aa215807195454c6299ca51f7683ffb8178d5ad8cbbd6071d0d3c99`
 
 ---
 
 ## 一、安装
 
-1. 把 `BotCtl-5.11.apk` 传到手机（微信/QQ 传文件、USB 拷贝、或手机直接下载均可）
+1. 把 `BotCtl-5.12.apk` 传到手机（微信/QQ 传文件、USB 拷贝、或手机直接下载均可）
 2. 点击安装。首次会提示「未知来源应用」——允许你使用的文件管理器/浏览器安装即可
 3. 应用名：**Bot控制台**
 
 > 4.2 起的各版本用同一签名证书，**可直接覆盖升级**。
-> 若你手机上还是 4.1（或更早），那一版是用已被删除的旧密钥签的，**必须先卸载**再装 5.11。
+> 若你手机上还是 4.1（或更早），那一版是用已被删除的旧密钥签的，**必须先卸载**再装 5.12。
 
 ---
 
@@ -257,6 +257,29 @@ disconnect → auth clear → connect
 常见回执（`Map Generated!` → `地图已生成`、`None` → `（无）`、`Invalid command usage` → `命令用法不正确`）
 以及血量/饥饿阈值、目标类型等字段都翻成中文；没命中的英文原样保留。
 
+**2·5. KillAura 生物白名单**（5.12 新增）
+
+自动化模块里 KillAura 那行下面，是一整片**生物勾选清单**（按分类分好，共 75 种）：
+
+```
+— 下界 —
+☑ 僵尸猪人  zombified_piglin
+☐ 猪灵      piglin
+☐ 烈焰人    blaze
+— 主世界 · 敌对 —
+☐ 僵尸      zombie
+```
+
+- **勾选 = 加入攻击目标**（`killAura targetCustom add <id>`），并自动打开 `targetCustom`
+- **取消 = 移出**（`killAura targetCustom del <id>`）
+- 顶部状态行实时显示：已勾选数量、KillAura 开关、自定义目标开关，
+  以及「列表外已启用」的目标（比如你手动加的）
+- **手动添加**：输入框填任意 id（自动转小写、自动去掉 `minecraft:` 前缀）
+- **刷新**：直接从 `killAura` 命令回显同步，不在 App 里猜状态
+
+> ⚠️ 实体 id **必须小写**。`blaze` ✅、`minecraft:blaze` ✅、`BLAZE` ❌
+> （服务器会报 `Invalid registry key`）。一个都没勾时 KillAura 不会攻击任何生物。
+
 **3. 寻路（Baritone）**
 - x / z 输入 → **前往**（`pathfinder goto x z`）
 - 玩家名 → **跟随**（`pathfinder follow <名>`）
@@ -392,7 +415,7 @@ App 用自己时钟探测几个相邻 bucket，并从 `generated` 字段自学�
 ```bash
 ssh root@YOUR_SERVER_IP
 cd /root/botctl4
-bash build_apk.sh          # 输出 /root/botctl4/BotCtl-5.11.apk
+bash build_apk.sh          # 输出 /root/botctl4/BotCtl-5.12.apk
 ```
 
 工具链在 `/opt/android/`：`build-tools`（aapt2 / d8 / zipalign / apksigner）+ `platform-34/android.jar`。
@@ -446,7 +469,7 @@ java.lang.NullPointerException: Cannot invoke "String.length()" because "<parame
 
 | 路径 | 说明 |
 | --- | --- |
-| `BotCtl-5.11.apk` | 成品安装包 |
+| `BotCtl-5.12.apk` | 成品安装包 |
 | `app4/src/com/dsh/botctl/MainActivity.java` | 主界面与业务逻辑（含日志翻译/分类） |
 | `app4/src/com/dsh/botctl/Api.java` | HTTP / SSE / 解析 |
 | `app4/src/com/dsh/botctl/PingChart.java` | 延迟波动自绘控件 |

@@ -125,6 +125,98 @@ public class MainActivity extends Activity {
     private TextView chatStatus;
     private EditText chatMsgs, chatSec, chatJitter;
     private CheckBox chatSuffix;
+    // ---- killAura 生物白名单
+    private TextView kaStatus;
+    private EditText kaManual;
+    private final java.util.Map<String, CheckBox> kaBoxes =
+            new java.util.LinkedHashMap<String, CheckBox>();
+    private static final java.util.regex.Pattern KA_CUSTOM =
+            java.util.regex.Pattern.compile("\\*\\*Custom Targets\\*\\*\\s*\\n?\\s*\\[([^\\]]*)\\]");
+
+    /** KillAura 可选目标：{中文名, 实体 id}，id 为空表示分类标题。 */
+    private static final String[][] KA_MOBS = {
+            {"— 下界 —", ""},
+            {"僵尸猪人", "zombified_piglin"},
+            {"猪灵", "piglin"},
+            {"猪灵蛮兵", "piglin_brute"},
+            {"疣猪兽", "hoglin"},
+            {"僵尸疣猪兽", "zoglin"},
+            {"恶魂", "ghast"},
+            {"烈焰人", "blaze"},
+            {"岩浆怪", "magma_cube"},
+            {"凋灵骷髅", "wither_skeleton"},
+            {"炽足兽", "strider"},
+            {"— 主世界 · 敌对 —", ""},
+            {"僵尸", "zombie"},
+            {"尸壳", "husk"},
+            {"溺尸", "drowned"},
+            {"骷髅", "skeleton"},
+            {"流浪者", "stray"},
+            {"苦力怕", "creeper"},
+            {"蜘蛛", "spider"},
+            {"洞穴蜘蛛", "cave_spider"},
+            {"蠹虫", "silverfish"},
+            {"女巫", "witch"},
+            {"史莱姆", "slime"},
+            {"幻翼", "phantom"},
+            {"掠夺者", "pillager"},
+            {"卫道士", "vindicator"},
+            {"唤魔者", "evoker"},
+            {"恼鬼", "vex"},
+            {"劫掠兽", "ravager"},
+            {"守卫者", "guardian"},
+            {"远古守卫者", "elder_guardian"},
+            {"监守者", "warden"},
+            {"— 中立 —", ""},
+            {"末影人", "enderman"},
+            {"狼", "wolf"},
+            {"铁傀儡", "iron_golem"},
+            {"雪傀儡", "snow_golem"},
+            {"蜜蜂", "bee"},
+            {"熊猫", "panda"},
+            {"北极熊", "polar_bear"},
+            {"羊驼", "llama"},
+            {"行商羊驼", "trader_llama"},
+            {"山羊", "goat"},
+            {"海豚", "dolphin"},
+            {"狐狸", "fox"},
+            {"— 被动 —", ""},
+            {"牛", "cow"},
+            {"猪", "pig"},
+            {"羊", "sheep"},
+            {"鸡", "chicken"},
+            {"兔子", "rabbit"},
+            {"马", "horse"},
+            {"驴", "donkey"},
+            {"骡", "mule"},
+            {"骷髅马", "skeleton_horse"},
+            {"村民", "villager"},
+            {"流浪商人", "wandering_trader"},
+            {"猫", "cat"},
+            {"豹猫", "ocelot"},
+            {"海龟", "turtle"},
+            {"鳕鱼", "cod"},
+            {"鲑鱼", "salmon"},
+            {"热带鱼", "tropical_fish"},
+            {"河豚", "pufferfish"},
+            {"鱿鱼", "squid"},
+            {"发光鱿鱼", "glow_squid"},
+            {"蝙蝠", "bat"},
+            {"悦灵", "allay"},
+            {"青蛙", "frog"},
+            {"蝌蚪", "tadpole"},
+            {"美西螈", "axolotl"},
+            {"骆驼", "camel"},
+            {"嗅探兽", "sniffer"},
+            {"— 末地 —", ""},
+            {"末影龙", "ender_dragon"},
+            {"潜影贝", "shulker"},
+            {"末影螨", "endermite"},
+            {"— Boss / 其他 —", ""},
+            {"凋灵", "wither"},
+            {"巨人", "giant"},
+            {"幻术师", "illusioner"},
+    };
 
     private final java.util.List<Button> viaVersionBtns = new java.util.ArrayList<Button>();
     private final java.util.List<String> viaVersionLabels = new java.util.ArrayList<String>();
@@ -1954,6 +2046,62 @@ public class MainActivity extends Activity {
         ka.setText("⚠️ KillAura / 自动战斗类功能在多数公共服务器违反服规，风险自负。");
         v.addView(ka);
 
+        // ---------------------------------------------------- killAura 生物白名单
+        toolSection(v, "KillAura 生物白名单（勾选即加入攻击目标）");
+        kaStatus = value("读取中…", 13f);
+        v.addView(kaStatus);
+
+        LinearLayout kaManualRow = toolRow(v);
+        kaManual = toolInput("其他生物 id，如 blaze / minecraft:blaze");
+        kaManualRow.addView(kaManual, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        kaManualRow.addView(btn("加入", new View.OnClickListener() {
+            public void onClick(View x) {
+                String raw = kaManual.getText().toString().trim().toLowerCase(Locale.US);
+                if (raw.startsWith("minecraft:")) raw = raw.substring("minecraft:".length());
+                if (raw.length() == 0) {
+                    toast("先填生物 id，例如 blaze");
+                    return;
+                }
+                if (!raw.matches("[a-z0-9_]+")) {
+                    toast("id 只能用 小写字母/数字/下划线");
+                    return;
+                }
+                kaManual.setText("");
+                kaToggle(raw, true);
+            }
+        }));
+        kaManualRow.addView(btn("刷新", new View.OnClickListener() {
+            public void onClick(View x) {
+                refreshKillAura();
+            }
+        }));
+
+        for (int i = 0; i < KA_MOBS.length; i++) {
+            final String label = KA_MOBS[i][0];
+            final String id = KA_MOBS[i][1];
+            if (id.length() == 0) {          // 分类标题行
+                TextView h = new TextView(this);
+                h.setText(label);
+                h.setTextSize(12f);
+                h.setTextColor(Color.parseColor("#0D47A1"));
+                h.setPadding(0, dp(8), 0, dp(2));
+                v.addView(h);
+                continue;
+            }
+            CheckBox cb = new CheckBox(this);
+            cb.setText(label + "  " + id);
+            cb.setTextSize(13f);
+            cb.setPadding(dp(4), 0, 0, 0);
+            cb.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View x) {
+                    kaToggle(id, ((CheckBox) x).isChecked());
+                }
+            });
+            v.addView(cb);
+            kaBoxes.put(id, cb);
+        }
+
         // ---------------------------------------------------- pathfinder
         toolSection(v, "寻路（Baritone）");
         LinearLayout prow = toolRow(v);
@@ -2150,6 +2298,8 @@ public class MainActivity extends Activity {
                         if (modStates.containsKey(base)) refreshOneModule(a, base);
                     }
                     if (cmd.startsWith("via")) refreshViaState();
+                    // 生物白名单改动后同步复选框
+                    if (cmd.startsWith("killAura")) refreshKillAura();
                 } catch (final Exception e) {
                     ui.post(new Runnable() {
                         public void run() {
@@ -2165,6 +2315,7 @@ public class MainActivity extends Activity {
     private void refreshModuleStates() {
         refreshServerState();
         refreshViaState();
+        refreshKillAura();
         for (int i = 0; i < MODULES.length; i++) {
             refreshOneModule(api, MODULES[i][1]);
         }
@@ -2242,6 +2393,83 @@ public class MainActivity extends Activity {
         }).start();
     }
 
+    // ------------------------------------------------------- killAura 生物白名单
+
+    /** 勾选/取消一个生物：add/del 目标；加入时顺手确保 targetCustom 打开。 */
+    private void kaToggle(final String id, final boolean add) {
+        if (api == null || !loggedIn) {
+            toast("还没连上面板");
+            return;
+        }
+        runTool("killAura targetCustom " + (add ? "add " : "del ") + id,
+                (add ? "白名单加入 " : "白名单移除 ") + id);
+        if (add) {
+            runTool("killAura targetCustom on", "开启自定义目标");
+        }
+    }
+
+    /** 读 killAura 的实时回显，同步复选框状态。 */
+    private void refreshKillAura() {
+        final Api a = api;
+        if (a == null || !loggedIn || kaStatus == null) return;
+        new Thread(new Runnable() {
+            public void run() {
+                try {
+                    String out = a.commandText("killAura");
+                    final java.util.Set<String> on = new java.util.LinkedHashSet<String>();
+                    java.util.regex.Matcher m = KA_CUSTOM.matcher(out);
+                    if (m.find()) {
+                        String[] parts = m.group(1).split(",");
+                        for (int i = 0; i < parts.length; i++) {
+                            String s = parts[i].trim();
+                            if (s.length() > 0) on.add(s.toUpperCase(Locale.US));
+                        }
+                    }
+                    final boolean customOn = out.contains("Target Custom: on");
+                    final boolean kaOn = out.contains("KillAura: on");
+                    ui.post(new Runnable() {
+                        public void run() {
+                            for (java.util.Map.Entry<String, CheckBox> e : kaBoxes.entrySet()) {
+                                CheckBox cb = e.getValue();
+                                boolean want = on.contains(e.getKey().toUpperCase(Locale.US));
+                                if (cb.isChecked() != want) cb.setChecked(want);
+                            }
+                            StringBuilder sb = new StringBuilder();
+                            sb.append("已勾选 ").append(on.size()).append(" 种");
+                            sb.append("　KillAura: ").append(kaOn ? "开" : "关");
+                            sb.append("　自定义目标: ").append(customOn ? "开" : "关");
+                            if (on.isEmpty()) {
+                                sb.append("\n⚠ 一个都没选，KillAura 不会攻击任何生物");
+                            } else {
+                                sb.append("\n").append(joinSet(on));
+                            }
+                            // 列表里没有、但服务器上已启用的（比如手动加的）
+                            java.util.List<String> extra = new java.util.ArrayList<String>();
+                            for (String s : on) {
+                                String low = s.toLowerCase(Locale.US);
+                                if (!kaBoxes.containsKey(low)) extra.add(s);
+                            }
+                            if (!extra.isEmpty()) {
+                                sb.append("\n列表外已启用: ").append(joinSet(
+                                        new java.util.LinkedHashSet<String>(extra)));
+                            }
+                            kaStatus.setText(sb.toString());
+                        }
+                    });
+                } catch (Exception ignored) {
+                }
+            }
+        }).start();
+    }
+
+    private static String joinSet(java.util.Set<String> set) {
+        StringBuilder sb = new StringBuilder();
+        for (String s : set) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(s);
+        }
+        return sb.toString();
+    }
     private void refreshOneModule(final Api a, final String cmd) {
         if (a == null) return;
         new Thread(new Runnable() {

@@ -20,6 +20,26 @@
 
 ---
 
+## v5.12
+
+### 新增
+- **KillAura 生物白名单**（「功能」页，紧挨自动化模块）：内置 **75 种生物**的勾选列表，
+  按「下界 / 主世界敌对 / 中立 / 被动 / 末地 / Boss」分组，勾选即加入攻击目标，取消即移除。
+  - 勾选执行 killAura targetCustom add <id>，并自动打开 killAura targetCustom on
+  - 取消执行 killAura targetCustom del <id>
+  - 顶部实时显示「已勾选 N 种 / KillAura 开关 / 自定义目标开关」，以及服务器上
+    已启用但不在列表里的目标（列表外已启用）
+  - 支持手动输入任意生物 id（自动转小写、自动去掉 minecraft: 前缀）
+  - 有「刷新」按钮，直接从 killAura 命令回显同步状态
+
+### 说明
+- 实体 id 必须**小写**：laze ✅ / minecraft:blaze ✅ / BLAZE ❌（Invalid registry key）
+- 一个都不勾时 KillAura 不会攻击任何生物（会显示红色提示）
+
+### 测试
+- 目标列表解析单测 4 项（单个/多个/空列表/真实长回显）全部通过。
+
+---
 ## v5.11
 
 ### 修复
