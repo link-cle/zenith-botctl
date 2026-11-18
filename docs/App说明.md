@@ -1,19 +1,19 @@
-# BotCtl 5.12 — 手机控制台使用说明
+# BotCtl 5.13 — 手机控制台使用说明
 
-文件：`BotCtl-5.12.apk`（99,179 字节，SHA256 `20F2B2F220A72A76A503CC2D678ADF2185A7104F499AD50FDC162449B7EB427A`）
-包名 `com.dsh.botctl`，版本 5.12（versionCode 42），minSdk 21（Android 5.0+），targetSdk 33
+文件：`BotCtl-5.13.apk`（103,275 字节，SHA256 `8188A7DD391B33406FD317B23C98401E8BECD7E7E7975F63E49A5C9D8B1E906B`）
+包名 `com.dsh.botctl`，版本 5.13（versionCode 43），minSdk 21（Android 5.0+），targetSdk 33
 签名证书 SHA-256：`d25e22660aa215807195454c6299ca51f7683ffb8178d5ad8cbbd6071d0d3c99`
 
 ---
 
 ## 一、安装
 
-1. 把 `BotCtl-5.12.apk` 传到手机（微信/QQ 传文件、USB 拷贝、或手机直接下载均可）
+1. 把 `BotCtl-5.13.apk` 传到手机（微信/QQ 传文件、USB 拷贝、或手机直接下载均可）
 2. 点击安装。首次会提示「未知来源应用」——允许你使用的文件管理器/浏览器安装即可
 3. 应用名：**Bot控制台**
 
 > 4.2 起的各版本用同一签名证书，**可直接覆盖升级**。
-> 若你手机上还是 4.1（或更早），那一版是用已被删除的旧密钥签的，**必须先卸载**再装 5.12。
+> 若你手机上还是 4.1（或更早），那一版是用已被删除的旧密钥签的，**必须先卸载**再装 5.13。
 
 ---
 
@@ -257,9 +257,15 @@ disconnect → auth clear → connect
 常见回执（`Map Generated!` → `地图已生成`、`None` → `（无）`、`Invalid command usage` → `命令用法不正确`）
 以及血量/饥饿阈值、目标类型等字段都翻成中文；没命中的英文原样保留。
 
-**2·5. KillAura 生物白名单**（5.12 新增）
+**2·5. KillAura 生物白名单**（5.12 新增，5.13 改成折叠入口）
 
-自动化模块里 KillAura 那行下面，是一整片**生物勾选清单**（按分类分好，共 75 种）：
+「自动攻击」下面是一条**灰色圆角条**：
+
+```
+killAura 生物白名单        3 种 ›
+```
+
+**点它进入独立整页**（左上角「← 返回」或按手机返回键收起），里面是完整的生物勾选清单（75 种，按分类分组）：
 
 ```
 — 下界 —
@@ -415,7 +421,7 @@ App 用自己时钟探测几个相邻 bucket，并从 `generated` 字段自学�
 ```bash
 ssh root@YOUR_SERVER_IP
 cd /root/botctl4
-bash build_apk.sh          # 输出 /root/botctl4/BotCtl-5.12.apk
+bash build_apk.sh          # 输出 /root/botctl4/BotCtl-5.13.apk
 ```
 
 工具链在 `/opt/android/`：`build-tools`（aapt2 / d8 / zipalign / apksigner）+ `platform-34/android.jar`。
@@ -469,7 +475,7 @@ java.lang.NullPointerException: Cannot invoke "String.length()" because "<parame
 
 | 路径 | 说明 |
 | --- | --- |
-| `BotCtl-5.12.apk` | 成品安装包 |
+| `BotCtl-5.13.apk` | 成品安装包 |
 | `app4/src/com/dsh/botctl/MainActivity.java` | 主界面与业务逻辑（含日志翻译/分类） |
 | `app4/src/com/dsh/botctl/Api.java` | HTTP / SSE / 解析 |
 | `app4/src/com/dsh/botctl/PingChart.java` | 延迟波动自绘控件 |

@@ -128,6 +128,10 @@ public class MainActivity extends Activity {
     // ---- killAura 生物白名单
     private TextView kaStatus;
     private EditText kaManual;
+    private LinearLayout kaEntry;
+    private TextView kaCount;
+    private View mobPage;
+    private android.view.ViewGroup overlayHost;
     private final java.util.Map<String, CheckBox> kaBoxes =
             new java.util.LinkedHashMap<String, CheckBox>();
     private static final java.util.regex.Pattern KA_CUSTOM =
@@ -396,6 +400,7 @@ public class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         setContentView(rootWrap);
+        overlayHost = rootWrap;
         selectTab(0);
 
         // 上次开着通知的话，直接恢复后台监控（权限没给就不强求）
@@ -2035,73 +2040,53 @@ public class MainActivity extends Activity {
                 }
             }));
         }
+        // ---- KillAura 生物白名单入口：放在「自动攻击」与「刷新全部模块」之间
+        kaEntry = new LinearLayout(this);
+        kaEntry.setOrientation(LinearLayout.HORIZONTAL);
+        kaEntry.setGravity(Gravity.CENTER_VERTICAL);
+        android.graphics.drawable.GradientDrawable bg =
+                new android.graphics.drawable.GradientDrawable();
+        bg.setColor(Color.parseColor("#E8E8E8"));
+        bg.setCornerRadius(dp(12));
+        kaEntry.setBackground(bg);
+        kaEntry.setPadding(dp(16), dp(16), dp(16), dp(16));
+        kaEntry.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View x) {
+                showMobPage();
+            }
+        });
+        TextView kaTitle = new TextView(this);
+        kaTitle.setText("killAura 生物白名单");
+        kaTitle.setTextSize(17f);
+        kaTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        kaTitle.setTextColor(Color.parseColor("#111111"));
+        kaTitle.setGravity(Gravity.CENTER);
+        kaEntry.addView(kaTitle, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        kaCount = new TextView(this);
+        kaCount.setTextSize(13f);
+        kaCount.setTextColor(Color.parseColor("#666666"));
+        kaEntry.addView(kaCount);
+        TextView kaArrow = new TextView(this);
+        kaArrow.setText("  ›");
+        kaArrow.setTextSize(20f);
+        kaArrow.setTextColor(Color.parseColor("#888888"));
+        kaEntry.addView(kaArrow);
+        LinearLayout.LayoutParams entryLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        entryLp.setMargins(0, dp(10), 0, dp(8));
+        v.addView(kaEntry, entryLp);
+
         v.addView(btn("刷新全部模块状态", new View.OnClickListener() {
             public void onClick(View x) {
                 refreshModuleStates();
             }
         }));
-        TextView ka = new TextView(this);
-        ka.setTextSize(11f);
-        ka.setTextColor(Color.parseColor("#C62828"));
-        ka.setText("⚠️ KillAura / 自动战斗类功能在多数公共服务器违反服规，风险自负。");
-        v.addView(ka);
-
-        // ---------------------------------------------------- killAura 生物白名单
-        toolSection(v, "KillAura 生物白名单（勾选即加入攻击目标）");
-        kaStatus = value("读取中…", 13f);
-        v.addView(kaStatus);
-
-        LinearLayout kaManualRow = toolRow(v);
-        kaManual = toolInput("其他生物 id，如 blaze / minecraft:blaze");
-        kaManualRow.addView(kaManual, new LinearLayout.LayoutParams(0,
-                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        kaManualRow.addView(btn("加入", new View.OnClickListener() {
-            public void onClick(View x) {
-                String raw = kaManual.getText().toString().trim().toLowerCase(Locale.US);
-                if (raw.startsWith("minecraft:")) raw = raw.substring("minecraft:".length());
-                if (raw.length() == 0) {
-                    toast("先填生物 id，例如 blaze");
-                    return;
-                }
-                if (!raw.matches("[a-z0-9_]+")) {
-                    toast("id 只能用 小写字母/数字/下划线");
-                    return;
-                }
-                kaManual.setText("");
-                kaToggle(raw, true);
-            }
-        }));
-        kaManualRow.addView(btn("刷新", new View.OnClickListener() {
-            public void onClick(View x) {
-                refreshKillAura();
-            }
-        }));
-
-        for (int i = 0; i < KA_MOBS.length; i++) {
-            final String label = KA_MOBS[i][0];
-            final String id = KA_MOBS[i][1];
-            if (id.length() == 0) {          // 分类标题行
-                TextView h = new TextView(this);
-                h.setText(label);
-                h.setTextSize(12f);
-                h.setTextColor(Color.parseColor("#0D47A1"));
-                h.setPadding(0, dp(8), 0, dp(2));
-                v.addView(h);
-                continue;
-            }
-            CheckBox cb = new CheckBox(this);
-            cb.setText(label + "  " + id);
-            cb.setTextSize(13f);
-            cb.setPadding(dp(4), 0, 0, 0);
-            cb.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View x) {
-                    kaToggle(id, ((CheckBox) x).isChecked());
-                }
-            });
-            v.addView(cb);
-            kaBoxes.put(id, cb);
-        }
-
+        TextView kaWarn = new TextView(this);
+        kaWarn.setTextSize(11f);
+        kaWarn.setTextColor(Color.parseColor("#C62828"));
+        kaWarn.setText("⚠️ KillAura / 自动战斗类功能在多数公共服务器违反服规，风险自负。");
+        v.addView(kaWarn);
         // ---------------------------------------------------- pathfinder
         toolSection(v, "寻路（Baritone）");
         LinearLayout prow = toolRow(v);
@@ -2396,6 +2381,137 @@ public class MainActivity extends Activity {
     // ------------------------------------------------------- killAura 生物白名单
 
     /** 勾选/取消一个生物：add/del 目标；加入时顺手确保 targetCustom 打开。 */
+    // ------------------------------------------------------- 生物白名单整页
+
+    /** 点入口条进入白名单整页（浮在标签页之上，返回即收起）。 */
+    private void showMobPage() {
+        if (overlayHost == null) return;
+        if (mobPage == null) {
+            mobPage = buildMobPage();
+            overlayHost.addView(mobPage, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        }
+        mobPage.setVisibility(View.VISIBLE);
+        refreshKillAura();
+    }
+
+    private void hideMobPage() {
+        if (mobPage != null) mobPage.setVisibility(View.GONE);
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (mobPage != null && mobPage.getVisibility() == View.VISIBLE) {
+            hideMobPage();
+            return;
+        }
+        super.onBackPressed();
+    }
+
+    private View buildMobPage() {
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setBackgroundColor(Color.parseColor("#FFFFFF"));
+
+        // 顶栏：返回 + 标题
+        LinearLayout head = new LinearLayout(this);
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.setBackgroundColor(Color.parseColor("#F2F2F2"));
+        head.setPadding(dp(8), dp(8), dp(12), dp(8));
+        Button back = btn("← 返回", new View.OnClickListener() {
+            public void onClick(View x) {
+                hideMobPage();
+            }
+        });
+        back.setTextSize(13f);
+        head.addView(back);
+        TextView title = new TextView(this);
+        title.setText("killAura 生物白名单");
+        title.setTextSize(17f);
+        title.setTypeface(null, android.graphics.Typeface.BOLD);
+        title.setTextColor(Color.parseColor("#111111"));
+        title.setGravity(Gravity.CENTER_VERTICAL);
+        head.addView(title, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        page.addView(head, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        ScrollView sc = new ScrollView(this);
+        LinearLayout v = new LinearLayout(this);
+        v.setOrientation(LinearLayout.VERTICAL);
+        v.setPadding(dp(14), dp(10), dp(14), dp(24));
+
+        kaStatus = value("读取中…", 13f);
+        kaStatus.setTextColor(Color.parseColor("#0D47A1"));
+        kaStatus.setPadding(dp(10), dp(10), dp(10), dp(10));
+        kaStatus.setBackgroundColor(Color.parseColor("#E3F2FD"));
+        v.addView(kaStatus);
+
+        LinearLayout row = toolRow(v);
+        kaManual = toolInput("其他生物 id，如 blaze / minecraft:blaze");
+        row.addView(kaManual, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(btn("加入", new View.OnClickListener() {
+            public void onClick(View x) {
+                String raw = kaManual.getText().toString().trim().toLowerCase(Locale.US);
+                if (raw.startsWith("minecraft:")) raw = raw.substring("minecraft:".length());
+                if (raw.length() == 0) {
+                    toast("先填生物 id，例如 blaze");
+                    return;
+                }
+                if (!raw.matches("[a-z0-9_]+")) {
+                    toast("id 只能用 小写字母/数字/下划线");
+                    return;
+                }
+                kaManual.setText("");
+                kaToggle(raw, true);
+            }
+        }));
+        row.addView(btn("刷新", new View.OnClickListener() {
+            public void onClick(View x) {
+                refreshKillAura();
+            }
+        }));
+
+        TextView hint = new TextView(this);
+        hint.setTextSize(11f);
+        hint.setTextColor(Color.parseColor("#C62828"));
+        hint.setText("勾选 = 加入攻击目标（add），取消 = 移出（del）。"
+                + "id 必须小写；一个都不勾时 KillAura 不会打任何生物。");
+        hint.setPadding(0, dp(6), 0, dp(4));
+        v.addView(hint);
+
+        for (int i = 0; i < KA_MOBS.length; i++) {
+            final String label = KA_MOBS[i][0];
+            final String id = KA_MOBS[i][1];
+            if (id.length() == 0) {
+                TextView h = new TextView(this);
+                h.setText(label);
+                h.setTextSize(12f);
+                h.setTextColor(Color.parseColor("#0D47A1"));
+                h.setPadding(0, dp(10), 0, dp(2));
+                v.addView(h);
+                continue;
+            }
+            CheckBox cb = new CheckBox(this);
+            cb.setText(label + "  " + id);
+            cb.setTextSize(14f);
+            cb.setPadding(dp(4), dp(2), 0, dp(2));
+            cb.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View x) {
+                    kaToggle(id, ((CheckBox) x).isChecked());
+                }
+            });
+            v.addView(cb);
+            kaBoxes.put(id, cb);
+        }
+
+        sc.addView(v);
+        page.addView(sc, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        return page;
+    }
     private void kaToggle(final String id, final boolean add) {
         if (api == null || !loggedIn) {
             toast("还没连上面板");
@@ -2411,7 +2527,7 @@ public class MainActivity extends Activity {
     /** 读 killAura 的实时回显，同步复选框状态。 */
     private void refreshKillAura() {
         final Api a = api;
-        if (a == null || !loggedIn || kaStatus == null) return;
+        if (a == null || !loggedIn) return;
         new Thread(new Runnable() {
             public void run() {
                 try {
@@ -2453,7 +2569,8 @@ public class MainActivity extends Activity {
                                 sb.append("\n列表外已启用: ").append(joinSet(
                                         new java.util.LinkedHashSet<String>(extra)));
                             }
-                            kaStatus.setText(sb.toString());
+                            if (kaStatus != null) kaStatus.setText(sb.toString());
+                            if (kaCount != null) kaCount.setText(on.size() + " 种");
                         }
                     });
                 } catch (Exception ignored) {
