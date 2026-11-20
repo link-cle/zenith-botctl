@@ -91,7 +91,7 @@ public final class Panel {
             return;
         }
         if (path.equals("/api/auth/login") && "POST".equals(method)) {
-            handleLogin(ex);
+            handleLogin(ex, reqBody);
             return;
         }
         if (path.equals("/api/auth/logout")) {
@@ -183,8 +183,7 @@ public final class Panel {
 
     // ------------------------------------------------------------------ 认证
 
-    private void handleLogin(HttpExchange ex) throws IOException {
-        JsonObject body = body(ex);
+    private void handleLogin(HttpExchange ex, JsonObject body) throws IOException {
         String u = body.has("username") ? body.get("username").getAsString() : "";
         String p = body.has("password") ? body.get("password").getAsString() : "";
         String cu = cfg.has("username") ? cfg.get("username").getAsString() : "admin";
