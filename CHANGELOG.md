@@ -30,6 +30,13 @@
   现在整台机器只为 App 开一个 HTTP 端口。
 - App 5.14：地图与喊话改走面板端口，不再写死 8081。
 
+### 修复（同日）
+- **日志页出现彩色乱码** [38;5;161m：终端日志带 ANSI 转义，插件原样推给了 App。
+  现在 appender 里统一剥离 ANSI（含 ESC 被吞后的残缺形式 [38;5;161m）。
+- **日志页不如以前简洁**：一是同一条视野事件被 Module 和 Terminal 各推一次，
+  二是 DEBUG 层大量 security / X509Certificate 噪音。
+  现在 **只推 INFO 及以上**、**跳过 Terminal 回显**（命令结果仍走 /api/commands 的结构化输出），
+  并过滤掉 15 个底层噪音 logger。实测 8 秒内从 500+ 条降到 28 条。
 ### 实现要点（踩过的坑，写下来防回归）
 - 日志：插件把自己挂成 **logback appender**（UnsynchronizedAppenderBase），环形缓冲 + 每客户端一条队列。
 - 命令：Globals.COMMAND.execute(ctx)；**输出要从 ctx.getEmbed() 渲染**

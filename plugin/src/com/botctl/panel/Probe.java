@@ -166,7 +166,7 @@ public final class Probe {
                     if (!"Terminal".equals(logger)) continue;
                     String msg = o.has("message") ? o.get("message").getAsString() : "";
                     for (String line : msg.split("\n")) {
-                        String s = line.trim();
+                        String s = Logs.stripAnsi(line).trim();
                         if (s.isEmpty() || s.equals(echo) || s.equals(input)) continue;
                         collected.add(s);
                     }

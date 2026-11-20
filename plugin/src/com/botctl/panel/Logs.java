@@ -27,6 +27,26 @@ public final class Logs extends UnsynchronizedAppenderBase<ILoggingEvent> {
     /** 最多保留多少条历史，供新连上的客户端回放。 */
     private static final int MAX_BUFFER = 800;
 
+    /** 终端彩色转义：\e[38;5;161m 这种。也可能出现 ESC 已被吞、只剩 [38;5;..m 的残缺形式。 */
+    private static final java.util.regex.Pattern ANSI =
+            java.util.regex.Pattern.compile("\u001B\\[[0-9;]*[A-Za-z]");
+    private static final java.util.regex.Pattern ANSI_ORPHAN =
+            java.util.regex.Pattern.compile("\\[[0-9]{1,2};[0-9]{1,2};[0-9]{1,3}[A-Za-z]");
+
+    /** 这些 logger 全是底层噪音（TLS 握手、Netty、DNS），推给手机只会刷屏。 */
+    private static final java.util.Set<String> NOISE = new java.util.HashSet<>(java.util.Arrays.asList(
+            "security", "httpserver", "NioIoHandler", "DnsNameResolver", "DnsQueryContext",
+            "DefaultChannelId", "ChannelInitializerExtensions", "DefaultHostsFileEntriesResolver",
+            "ResourceLeakDetectorFactory", "EpollDatagramChannel", "HttpURLConnection",
+            "MinecraftProtocol", "TcpSession", "ProcessBuilder", "ViaBackwards", "ViaRewind"));
+
+    static String stripAnsi(String s) {
+        if (s == null) return "";
+        String out = ANSI.matcher(s).replaceAll("");
+        out = ANSI_ORPHAN.matcher(out).replaceAll("");
+        return out;
+    }
+
     private static final Deque<JsonObject> BUFFER = new ArrayDeque<>(MAX_BUFFER);
     private static final java.util.concurrent.atomic.AtomicLong SEQ = new java.util.concurrent.atomic.AtomicLong();
     private static final List<Client> CLIENTS = new CopyOnWriteArrayList<>();
@@ -39,9 +59,12 @@ public final class Logs extends UnsynchronizedAppenderBase<ILoggingEvent> {
     public static Client subscribe() {
         Client c = new Client();
         CLIENTS.add(c);
-        // 回放历史，避免刚连上时是一片空白
+        // 回放历史，避免刚连上时是一片空白（Terminal 的历史同样跳过）
         synchronized (BUFFER) {
-            for (JsonObject o : BUFFER) c.queue.offer(o.toString());
+            for (JsonObject o : BUFFER) {
+                if (o.has("logger") && "Terminal".equals(o.get("logger").getAsString())) continue;
+                c.queue.offer(o.toString());
+            }
         }
         return c;
     }
@@ -53,11 +76,17 @@ public final class Logs extends UnsynchronizedAppenderBase<ILoggingEvent> {
     @Override
     protected void append(ILoggingEvent ev) {
         try {
+            Level lv = ev.getLevel();
+            if (lv == null || lv.toInt() < Level.INFO_INT) return;   // DEBUG/TRACE 一律不要
+
+            String lg = ev.getLoggerName() == null ? "" : shortLogger(ev.getLoggerName());
+            if (NOISE.contains(lg)) return;                          // 底层噪音直接丢
             // 注意：这里绝对不能打日志，否则会递归
             JsonObject o = new JsonObject();
             o.addProperty("level", ev.getLevel() == null ? "INFO" : ev.getLevel().toString());
-            o.addProperty("logger", ev.getLoggerName() == null ? "" : shortLogger(ev.getLoggerName()));
-            o.addProperty("message", render(ev));
+            o.addProperty("logger", lg);
+            String raw = stripAnsi(render(ev));
+            o.addProperty("message", raw);
             o.addProperty("timestamp", ev.getTimeStamp());
             o.addProperty("seq", SEQ.incrementAndGet());
 
@@ -65,6 +94,11 @@ public final class Logs extends UnsynchronizedAppenderBase<ILoggingEvent> {
                 BUFFER.addLast(o);
                 while (BUFFER.size() > MAX_BUFFER) BUFFER.removeFirst();
             }
+            // Terminal 这些行是彩色分片的终端回显（命令结果已经从 /api/commands 的结构化输出拿），
+            // 推给手机只会变成一堆 "[38;5;161m"，所以在 SSE 里跳过，只留在缓冲里给命令采集用。
+            boolean terminal = "Terminal".equals(o.get("logger").getAsString());
+            if (terminal) return;
+
             String line = o.toString();
             for (Client c : CLIENTS) {
                 if (!c.queue.offer(line)) {
