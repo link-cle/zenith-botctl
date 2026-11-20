@@ -1,0 +1,9 @@
+{
+  "entrypoint": "com.botctl.panel.BotCtlPlugin",
+  "id": "botctl",
+  "version": "1.0.0",
+  "description": "BotCtl panel for ZenithProxy: auth, dashboard, commands, SSE logs, whitelist, maps, scheduled chat - replaces ZenithProxy-WebUI and the extra 8081 helper",
+  "url": "https://github.com/link-cle/zenith-botctl",
+  "authors": ["link-cle"],
+  "mcVersions": ["*"]
+}

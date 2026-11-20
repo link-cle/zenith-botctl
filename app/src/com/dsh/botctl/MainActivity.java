@@ -45,7 +45,8 @@ public class MainActivity extends Activity {
 
     private static final String PREFS = "botctl4";
     private static final int DEF_PORT = 8080;
-    private static final int MAP_ADMIN_PORT = 8081;   // map delete service
+    // 5.14 起地图/喊话都走面板端口（BotCtl 插件），不再有独立的 8081 服务
+    private static final int MAP_ADMIN_PORT = 8081;   // 仅用于旧版提示文案
     // No server address and no password are baked in: the APK is meant to be shared,
     // so whoever installs it enters their own deployment details.
     private static final int MAX_LOG_LINES = 600;
@@ -2892,7 +2893,7 @@ public class MainActivity extends Activity {
             return;
         }
         // 控件必须在 UI 线程读
-        final String host = Api.splitHostPort(edHost.getText().toString().trim(), DEF_PORT)[0];
+        final String hostPort = edHost.getText().toString().trim();
         final String user = edUser.getText().toString().trim();
         final String pass = edPass.getText().toString();
         new Thread(new Runnable() {
@@ -2903,7 +2904,7 @@ public class MainActivity extends Activity {
                     p.put("user", user);
                     p.put("pass", pass);
                     c = (java.net.HttpURLConnection)
-                            new java.net.URL(mapAdminBase(host) + path).openConnection();
+                            new java.net.URL(panelBase(hostPort) + path).openConnection();
                     c.setRequestMethod("POST");
                     c.setDoOutput(true);
                     c.setConnectTimeout(8000);
@@ -3473,8 +3474,10 @@ public class MainActivity extends Activity {
     // ------------------------------------------------------- map delete (8081)
 
     /** URL of the map-admin service. `host` must be resolved on the UI thread. */
-    private static String mapAdminBase(String host) {
-        return "http://" + host + ":" + MAP_ADMIN_PORT;
+    /** 面板地址（地图/喊话都在面板端口上，由 BotCtl 插件提供）。 */
+    private static String panelBase(String hostPort) {
+        String[] hp = Api.splitHostPort(hostPort, DEF_PORT);
+        return "http://" + hp[0] + ":" + hp[1];
     }
 
     private void deleteMapFile(final String name) {
@@ -3495,7 +3498,7 @@ public class MainActivity extends Activity {
         setMapMsg(what + " …");
         // Touch the EditTexts here, on the UI thread: reading views from a worker thread
         // is what used to crash this page.
-        final String host = Api.splitHostPort(edHost.getText().toString().trim(), DEF_PORT)[0];
+        final String hostPort = edHost.getText().toString().trim();
         final String user = edUser.getText().toString().trim();
         final String pass = edPass.getText().toString();
         new Thread(new Runnable() {
@@ -3503,7 +3506,7 @@ public class MainActivity extends Activity {
                 java.net.HttpURLConnection c = null;
                 try {
                     String path = names == null ? "/api/maps/clear" : "/api/maps/delete";
-                    c = (java.net.HttpURLConnection) new java.net.URL(mapAdminBase(host) + path).openConnection();
+                    c = (java.net.HttpURLConnection) new java.net.URL(panelBase(hostPort) + path).openConnection();
                     c.setRequestMethod("POST");
                     c.setDoOutput(true);
                     c.setConnectTimeout(8000);
@@ -3556,7 +3559,7 @@ public class MainActivity extends Activity {
                     ui.post(new Runnable() {
                         public void run() {
                             setMapMsg(what + " 失败: " + e.getMessage()
-                                    + "（连不上 " + MAP_ADMIN_PORT + "，确认地图服务在跑）");
+                                    + "（连不上面板端口，确认 BotCtl 插件已加载）");
                         }
                     });
                 } finally {

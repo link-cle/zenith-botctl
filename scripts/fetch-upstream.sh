@@ -12,12 +12,6 @@ ZP_VER="3.7.3%2Bjava.1.21.4"
 ZP_NAME="ZenithProxy.jar"
 ZP_SHA="3B57CA7980D78C0B1F6B1ADDF9EF5C55EDFE9B221144C9C9A69889CCAFC986F0"
 
-WU_VER="v1.4.0"
-WU_NAME="ZenithProxy-WebUI-1.4.0.jar"
-WU_SHA="7443682AC97CF8BD60AD57EF7CD85956144D8846FDAF1CD837B39193997E9C20"
-
-ZP_URL="https://github.com/rfresh2/ZenithProxy/releases/download/${ZP_VER}/${ZP_NAME}"
-WU_URL="https://github.com/wxh1024/ZenithProxy-WebUI/releases/download/${WU_VER}/${WU_NAME}"
 
 OUT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/dist"
 MIRROR=0
@@ -58,13 +52,6 @@ else
   check "$ZP_NAME" "$ZP_SHA" || exit 1
 fi
 
-echo "==> 获取 ZenithProxy-WebUI $WU_VER"
-if [ -f "$WU_NAME" ] && check "$WU_NAME" "$WU_SHA" 2>/dev/null; then
-  echo "  已存在且校验通过，跳过"
-else
-  fetch "$WU_URL" "$WU_NAME" || { echo "下载失败：$WU_URL" >&2; exit 1; }
-  check "$WU_NAME" "$WU_SHA" || exit 1
-fi
 
 echo
 echo "完成，文件在：$OUT_DIR"

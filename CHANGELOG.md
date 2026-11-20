@@ -20,6 +20,35 @@
 
 ---
 
+## v5.14
+
+### 重大变更：面板不再依赖 wxh1024 的 ZenithProxy-WebUI
+- **自己写了一个 ZenithProxy 插件** plugin/（id: botctl），一个 jar 提供 App 需要的全部接口：
+  认证（Cookie + 账号密码双通道）、/api/dashboard、/api/commands、/api/logs/stream（SSE）、
+  /api/whitelist、地图静态文件与删除、定时喊话、/api/health。
+- **地图/喊话从 8081 移到面板端口**，8081 那个 Python 服务已停用（systemctl disable --now mapadmin）。
+  现在整台机器只为 App 开一个 HTTP 端口。
+- App 5.14：地图与喊话改走面板端口，不再写死 8081。
+
+### 实现要点（踩过的坑，写下来防回归）
+- 日志：插件把自己挂成 **logback appender**（UnsynchronizedAppenderBase），环形缓冲 + 每客户端一条队列。
+- 命令：Globals.COMMAND.execute(ctx)；**输出要从 ctx.getEmbed() 渲染**
+  （
+ame: value 拼回来就是终端文本），不能指望 CommandSource——很多命令不经过它。
+- 不能靠"等日志安静"来判定命令结束：这个服聊天很活跃，Terminal 日志一刻不停，
+  曾把面板线程池活活卡死。现在改成固定 700ms 采集窗口 + 全局命令串行锁。
+- 地图静态文件做了目录穿越防护（/maps/../config.json 返回 401/404）。
+
+### 部署脚本
+- server/deploy_zenith.sh 重写：改为**自动编译并安装** BotCtl 插件（javac + jar，无需联网），
+  不再下载/安装 WebUI，也不再装 8081 服务；会把残留的 WebUI jar 移进 backup 防抢端口。
+- scripts/fetch-upstream.sh 只下载 ZenithProxy.jar 一个依赖。
+
+### 依赖变化
+- 运行时依赖从「ZenithProxy + ZenithProxy-WebUI」减为 **只有 ZenithProxy**。
+  WebUI 仅作为历史参考保留在 NOTICE 中，不再分发也不再使用。
+
+---
 ## v5.13
 
 ### 变更
