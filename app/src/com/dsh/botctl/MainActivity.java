@@ -140,6 +140,10 @@ public class MainActivity extends Activity {
     private boolean raidOn;
     // 用 TextView 当开关按钮（避免额外控件类型）
     private TextView raidToggle;
+    // ---- 自动喝不祥之瓶
+    private TextView drinkStatus, drinkToggle;
+    private EditText drinkSecs;
+    private boolean drinkOn;
     private View mobPage;
     private android.view.ViewGroup overlayHost;
     private final java.util.Map<String, CheckBox> kaBoxes =
@@ -2437,6 +2441,102 @@ public class MainActivity extends Activity {
     /** 点入口条进入白名单整页（浮在标签页之上，返回即收起）。 */
     // ------------------------------------------------------- 袭击助手
 
+    // ------------------------------------------------------- 自动喝不祥之瓶
+
+    private void drinkSet(final boolean want) {
+        JSONObject p = new JSONObject();
+        try {
+            p.put("enabled", want);
+        } catch (Exception ignored) {
+        }
+        helperPost("/api/drink/set", p, new HelperCb() {
+            public void done(JSONObject res, String err) {
+                if (err != null) {
+                    toast(err);
+                    return;
+                }
+                toast(want ? "自动喝瓶已开启" : "自动喝瓶已关闭");
+                refreshDrink();
+            }
+        });
+    }
+
+    private void drinkSaveInterval() {
+        int secs;
+        try {
+            secs = Integer.parseInt(drinkSecs.getText().toString().trim());
+        } catch (Exception e) {
+            toast("间隔要填数字（秒）");
+            return;
+        }
+        if (secs < 10) {
+            toast("间隔不能小于 10 秒");
+            return;
+        }
+        JSONObject p = new JSONObject();
+        try {
+            p.put("seconds", secs);
+        } catch (Exception ignored) {
+        }
+        helperPost("/api/drink/set", p, new HelperCb() {
+            public void done(JSONObject res, String err) {
+                if (err != null) {
+                    toast(err);
+                    return;
+                }
+                toast("间隔已保存");
+                refreshDrink();
+            }
+        });
+    }
+
+    private void drinkNow() {
+        helperPost("/api/drink/now", null, new HelperCb() {
+            public void done(JSONObject res, String err) {
+                if (err != null) {
+                    toast(err);
+                    return;
+                }
+                if (res != null) {
+                    toast(res.optBoolean("success", false)
+                            ? "已喝：" + res.optString("lastResult", "")
+                            : "没喝成：" + res.optString("lastResult", ""));
+                }
+                refreshDrink();
+            }
+        });
+    }
+
+    private void refreshDrink() {
+        final Api a = api;
+        if (a == null || !loggedIn || drinkStatus == null) return;
+        helperPost("/api/drink/get", null, new HelperCb() {
+            public void done(JSONObject res, String err) {
+                if (err != null || res == null) {
+                    if (drinkStatus != null) drinkStatus.setText("读取失败：" + err);
+                    return;
+                }
+                drinkOn = res.optBoolean("enabled", false);
+                if (drinkToggle != null) {
+                    drinkToggle.setText(drinkOn ? "关闭自动喝瓶" : "开启自动喝瓶");
+                    drinkToggle.setBackgroundColor(drinkOn
+                            ? Color.parseColor("#C62828") : Color.parseColor("#2E7D32"));
+                    drinkToggle.setTextColor(Color.WHITE);
+                }
+                if (drinkSecs != null && drinkSecs.getText().toString().trim().length() == 0) {
+                    drinkSecs.setText(String.valueOf(res.optInt("seconds", 120)));
+                }
+                StringBuilder sb = new StringBuilder();
+                sb.append("喝瓶: ").append(drinkOn ? "已开启" : "已关闭");
+                sb.append("　间隔: ").append(res.optInt("seconds", 120)).append(" 秒");
+                sb.append("\n已喝: ").append(res.optInt("drinkCount", 0)).append(" 次");
+                sb.append("　快捷栏剩余: ").append(res.optInt("bottlesHotbar", 0)).append(" 瓶");
+                String last = res.optString("lastResult", "");
+                if (last.length() > 0) sb.append("\n上次: ").append(last);
+                drinkStatus.setText(sb.toString());
+            }
+        });
+    }
     private void showRaidPage() {
         if (overlayHost == null) return;
         if (raidPage == null) {
@@ -2446,6 +2546,7 @@ public class MainActivity extends Activity {
         }
         raidPage.setVisibility(View.VISIBLE);
         refreshRaid();
+        refreshDrink();
     }
 
     private void hideRaidPage() {
@@ -2519,6 +2620,50 @@ public class MainActivity extends Activity {
         raidAfk.setTextSize(13f);
         v.addView(raidAfk);
 
+        // ---- 自动喝不祥之瓶
+        TextView drinkTitle = new TextView(this);
+        drinkTitle.setText("自动喝不祥之瓶");
+        drinkTitle.setTextSize(15f);
+        drinkTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        drinkTitle.setTextColor(Color.parseColor("#1B5E20"));
+        drinkTitle.setPadding(0, dp(16), 0, dp(4));
+        v.addView(drinkTitle);
+
+        drinkStatus = value("读取中…", 12f);
+        drinkStatus.setTextColor(Color.parseColor("#0D47A1"));
+        drinkStatus.setPadding(dp(10), dp(8), dp(10), dp(8));
+        drinkStatus.setBackgroundColor(Color.parseColor("#E8F5E9"));
+        v.addView(drinkStatus);
+
+        drinkToggle = btn("开启自动喝瓶", new View.OnClickListener() {
+            public void onClick(View x) {
+                drinkSet(!drinkOn);
+            }
+        });
+        drinkToggle.setTextSize(15f);
+        v.addView(drinkToggle);
+
+        LinearLayout drinkRow = toolRow(v);
+        drinkSecs = toolInput("间隔秒数（默认 120）");
+        drinkRow.addView(drinkSecs, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        drinkRow.addView(btn("保存间隔", new View.OnClickListener() {
+            public void onClick(View x) {
+                drinkSaveInterval();
+            }
+        }));
+        drinkRow.addView(btn("立即喝一瓶", new View.OnClickListener() {
+            public void onClick(View x) {
+                drinkNow();
+            }
+        }));
+
+        TextView drinkHint = new TextView(this);
+        drinkHint.setTextSize(11f);
+        drinkHint.setTextColor(Color.parseColor("#33691E"));
+        drinkHint.setText("3c3u 的“不祥之瓶”其实是蜂蜜瓶+组件，两种 id 都认。"
+                + "喝法：主手临时切槽 → click right useItem → 喝完切回，不占副手（副手留给图腾）。");
+        v.addView(drinkHint);
         Button saveCfg = btn("保存选项", new View.OnClickListener() {
             public void onClick(View x) {
                 raidSaveOptions();

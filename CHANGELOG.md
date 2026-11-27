@@ -20,6 +20,36 @@
 
 ---
 
+## v5.16
+
+### 新增：自动喝不祥之瓶（Ominous Bottle）
+- 袭击助手页里新增「自动喝不祥之瓶」：**按间隔自动喝瓶触发/续上袭击**，让袭击助手有活可干。
+- 默认认两种物品 id：
+  - 原版 ominous_bottle（1384）
+  - **3c3u 实际用的 honey_bottle（1277）+ 自定义组件** —— 物品提示里能看到
+    minecraft:honey_bottle 那行，所以不能只认原版 id。
+- 喝法：**主手临时切槽 → click right useItem mainHand → 喝完切回原槽**。
+  不占副手（副手留给图腾保命）。
+- App 上可设间隔秒数（最小 10）、立即喝一瓶、看已喝次数与快捷栏剩余瓶数。
+
+### 踩坑记录（重要）
+- 直接发 ServerboundUseItemPacket 服务端**不认**（物品不消耗）。
+- 通过 InputManager 持续提交 rightClick 也**不生效**。
+- **真正有效的是 ZenithProxy 自带的 click 命令**：
+  click right useItem mainHand → 回显 Using Item | Hand: main_hand | Item: honey_bottle，
+  且物品数量确实 -1。所以最终实现走命令，而不是自发包。
+- 快捷栏槽位换算：物品列表是绝对槽位（36..44），而 SetCarriedItem 要的是 0..8，
+  必须 slot - 36；早期版本直接混用导致“一直在切槽”，已修。
+
+### 实测
+`
+喝前: 38 -> honey_bottle "" (x23) [Held]
+执行: /api/drink/now
+回显: 已喝（快捷栏第 3 格） count=1
+喝后: 38 -> honey_bottle "" (x22) [Held]
+`
+
+---
 ## v5.15
 
 ### 新增

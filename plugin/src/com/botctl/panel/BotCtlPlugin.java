@@ -44,6 +44,8 @@ public final class BotCtlPlugin implements ZenithProxyPlugin {
             Chat.get().start();
             Raid.init(installDir);
             Raid.get().start();
+            Drink.init(installDir);
+            Drink.get().start();
 
             // 3) HTTP 面板
             panel = new Panel(cfg, installDir);

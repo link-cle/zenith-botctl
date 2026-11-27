@@ -200,6 +200,20 @@ public final class Panel {
             return;
         }
 
+        // ---- 自动喝不祥之瓶
+        if (path.equals("/api/drink/get")) {
+            send(ex, 200, Drink.get().state());
+            return;
+        }
+        if (path.equals("/api/drink/set")) {
+            send(ex, 200, Drink.get().set(reqBody));
+            return;
+        }
+        if (path.equals("/api/drink/now")) {
+            send(ex, 200, Drink.get().drinkNow());
+            return;
+        }
+
         send(ex, 404, json("error", "not found"));
     }
 
