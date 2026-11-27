@@ -26,7 +26,7 @@
 - 袭击助手页里新增「自动喝不祥之瓶」：**按间隔自动喝瓶触发/续上袭击**，让袭击助手有活可干。
 - 默认认两种物品 id：
   - 原版 ominous_bottle（1384）
-  - **3c3u 实际用的 honey_bottle（1277）+ 自定义组件** —— 物品提示里能看到
+  - **mc.example.com 实际用的 honey_bottle（1277）+ 自定义组件** —— 物品提示里能看到
     minecraft:honey_bottle 那行，所以不能只认原版 id。
 - 喝法：**主手临时切槽 → click right useItem mainHand → 喝完切回原槽**。
   不占副手（副手留给图腾保命）。

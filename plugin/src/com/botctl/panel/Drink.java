@@ -22,7 +22,7 @@ import java.util.Random;
  * 自动喝不祥之瓶（Ominous Bottle）。
  *
  * 为什么要认两个物品 id：
- *   3c3u 并没有用原版 ominous_bottle(1384)，而是用 honey_bottle(1277) + 自定义组件
+ *   mc.example.com 并没有用原版 ominous_bottle(1384)，而是用 honey_bottle(1277) + 自定义组件
  *   拼出来的"不祥之瓶"（物品提示里能看到 minecraft:honey_bottle 这一行）。
  *   所以默认两个 id 都认，哪个在手边就喝哪个。
  *
@@ -35,7 +35,7 @@ public final class Drink {
 
     /** 原版不祥之瓶 */
     private static final int ID_OMINOUS = 1384;
-    /** 3c3u 实际用的：蜂蜜瓶 + 组件 */
+    /** mc.example.com 实际用的：蜂蜜瓶 + 组件 */
     private static final int ID_HONEY = 1277;
 
     private static Drink INSTANCE;
@@ -47,7 +47,7 @@ public final class Drink {
     private int seconds = 120;
     private int jitter = 15;
     private int useOminous = 1;   // 1=认原版不祥之瓶
-    private int useHoney = 1;     // 1=认蜂蜜瓶(3c3u 那种)
+    private int useHoney = 1;     // 1=认蜂蜜瓶(mc.example.com 那种)
 
     private long nextAt = 0;
     private long lastDrink = 0;
