@@ -20,6 +20,38 @@
 
 ---
 
+## v5.15
+
+### 新增
+- **袭击助手（Raid Assistant）**，移植自 SW-meteor-addon 的 SWRaidAssist671。
+  原插件的行为是「袭击期间按随机间隔喝药 + 开/关背包」，属于客户端界面动作；
+  机器人没有背包界面，因此在 bot 上等价的实现是：
+
+  | 原插件 | bot 版（等价物） |
+  | --- | --- |
+  | 自动喝药 | 开 **autoEat**（自动进食） |
+  | 开/关背包保持活跃 | 开 **antiAfk**（防挂机） |
+  | —（原插件不战斗） | **自动把 killAura 目标切成袭击怪并开启** |
+
+- 袭击判定：读 Boss 栏，标题包含 Raid / 袭击 即视为袭击进行中。
+- 进入袭击：自动 killAura targetCustom add 七种袭击怪
+  （pillager / vindicator / evoker / ravager / vex / witch / illusioner）+ 开 killAura + autoEat + antiAfk。
+- 袭击结束：**逐项还原**——删掉本次加的目标、恢复 killAura/targetCustom/autoEat/antiAfk 的原状态。
+- App「功能」页新增绿色入口条「袭击助手」，点进去是独立页：
+  开关、三个子选项、保存、立即检测、**模拟袭击 / 结束模拟**（不用真等一场袭击就能验证链路）。
+
+### 新增接口（面板插件）
+- POST /api/raid/get 读状态
+- POST /api/raid/set {enabled, autoFight, autoEat, antiAfk, pollSeconds}
+- POST /api/raid/check 立即检测
+- POST /api/raid/simulate / eset 模拟开始 / 结束并还原（调试用）
+
+### 实测
+- 模拟袭击后目标列表：[ZOMBIFIED_PIGLIN, PILLAGER, VINDICATOR, EVOKER, RAVAGER, VEX, WITCH, ILLUSIONER]，
+  AutoEat: on、AntiAFK: on。
+- 结束模拟后目标恢复成 [ZOMBIFIED_PIGLIN]，模块状态一并还原。
+
+---
 ## v5.14
 
 ### 重大变更：面板不再依赖 wxh1024 的 ZenithProxy-WebUI

@@ -1,19 +1,19 @@
-# BotCtl 5.14 — 手机控制台使用说明
+# BotCtl 5.15 — 手机控制台使用说明
 
-文件：`BotCtl-5.14.apk`（103,275 字节，SHA256 `4865B880616BB53BC40EDE0446DA6AC33500DC07DB23FA92B3876D70F388A2E8`）
-包名 `com.dsh.botctl`，版本 5.14（versionCode 44），minSdk 21（Android 5.0+），targetSdk 33
+文件：`BotCtl-5.15.apk`（107,371 字节，SHA256 `5A1738560214F9AA47D6508F45B924235D09A63C82ADF1C03F38EEAC81975628`）
+包名 `com.dsh.botctl`，版本 5.15（versionCode 45），minSdk 21（Android 5.0+），targetSdk 33
 签名证书 SHA-256：`d25e22660aa215807195454c6299ca51f7683ffb8178d5ad8cbbd6071d0d3c99`
 
 ---
 
 ## 一、安装
 
-1. 把 `BotCtl-5.14.apk` 传到手机（微信/QQ 传文件、USB 拷贝、或手机直接下载均可）
+1. 把 `BotCtl-5.15.apk` 传到手机（微信/QQ 传文件、USB 拷贝、或手机直接下载均可）
 2. 点击安装。首次会提示「未知来源应用」——允许你使用的文件管理器/浏览器安装即可
 3. 应用名：**Bot控制台**
 
 > 4.2 起的各版本用同一签名证书，**可直接覆盖升级**。
-> 若你手机上还是 4.1（或更早），那一版是用已被删除的旧密钥签的，**必须先卸载**再装 5.14。
+> 若你手机上还是 4.1（或更早），那一版是用已被删除的旧密钥签的，**必须先卸载**再装 5.15。
 
 ---
 
@@ -286,6 +286,36 @@ killAura 生物白名单        3 种 ›
 > ⚠️ 实体 id **必须小写**。`blaze` ✅、`minecraft:blaze` ✅、`BLAZE` ❌
 > （服务器会报 `Invalid registry key`）。一个都没勾时 KillAura 不会攻击任何生物。
 
+**2·6. 袭击助手**（5.15 新增）
+
+「功能」页里「killAura 生物白名单」下面还有一条绿色入口 **袭击助手**，点进去是独立页：
+
+```
+助手: 已关闭    当前: 无袭击
+累计触发: 0 次
+
+[ 开启袭击助手 ]
+☑ 自动打袭击怪（pillager/vindicator/evoker/ravager/vex/witch/illusioner）
+☑ 袭击期间开自动进食 autoEat
+☑ 袭击期间开防挂机 antiAfk
+[ 保存选项 ]
+[立即检测] [模拟袭击] [结束模拟]
+```
+
+**判定**：读 Boss 栏，标题里包含 `Raid` 或 `袭击` 就认为袭击进行中。
+
+**进入袭击时自动做三件事**：
+1. 把 killAura 的目标加上七种袭击怪并开启攻击
+2. 开 `autoEat`（饿了自己吃）
+3. 开 `antiAfk`（防挂机踢出）
+
+**袭击结束时逐项还原**：删掉本次加的目标、恢复 killAura / targetCustom / autoEat / antiAfk 的原状态。
+
+**模拟袭击 / 结束模拟**：不用真等一场袭击，点一下就能验证“切目标 → 还原”整条链路。
+
+> 和原插件的差异：SW 那个插件的「喝药 / 开背包」是客户端界面动作（`InvUtils` 切物品 + 开背包界面），
+> 机器人没有背包界面，所以用「自动进食 + 防挂机」等价替代；另外 bot 版**多了自动战斗**。
+
 **3. 寻路（Baritone）**
 - x / z 输入 → **前往**（`pathfinder goto x z`）
 - 玩家名 → **跟随**（`pathfinder follow <名>`）
@@ -421,7 +451,7 @@ App 用自己时钟探测几个相邻 bucket，并从 `generated` 字段自学�
 ```bash
 ssh root@YOUR_SERVER_IP
 cd /root/botctl4
-bash build_apk.sh          # 输出 /root/botctl4/BotCtl-5.14.apk
+bash build_apk.sh          # 输出 /root/botctl4/BotCtl-5.15.apk
 ```
 
 工具链在 `/opt/android/`：`build-tools`（aapt2 / d8 / zipalign / apksigner）+ `platform-34/android.jar`。
@@ -475,7 +505,7 @@ java.lang.NullPointerException: Cannot invoke "String.length()" because "<parame
 
 | 路径 | 说明 |
 | --- | --- |
-| `BotCtl-5.14.apk` | 成品安装包 |
+| `BotCtl-5.15.apk` | 成品安装包 |
 | `app4/src/com/dsh/botctl/MainActivity.java` | 主界面与业务逻辑（含日志翻译/分类） |
 | `app4/src/com/dsh/botctl/Api.java` | HTTP / SSE / 解析 |
 | `app4/src/com/dsh/botctl/PingChart.java` | 延迟波动自绘控件 |

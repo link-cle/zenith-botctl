@@ -42,6 +42,8 @@ public final class BotCtlPlugin implements ZenithProxyPlugin {
             Path installDir = Path.of(".").toAbsolutePath().normalize();
             Chat.init(installDir);
             Chat.get().start();
+            Raid.init(installDir);
+            Raid.get().start();
 
             // 3) HTTP 面板
             panel = new Panel(cfg, installDir);

@@ -131,6 +131,15 @@ public class MainActivity extends Activity {
     private EditText kaManual;
     private LinearLayout kaEntry;
     private TextView kaCount;
+    // ---- 袭击助手
+    private LinearLayout raidEntry;
+    private TextView raidCount, raidStatus;
+    private TextView raidEnabledView;
+    private View raidPage;
+    private CheckBox raidFight, raidEat, raidAfk;
+    private boolean raidOn;
+    // 用 TextView 当开关按钮（避免额外控件类型）
+    private TextView raidToggle;
     private View mobPage;
     private android.view.ViewGroup overlayHost;
     private final java.util.Map<String, CheckBox> kaBoxes =
@@ -2077,6 +2086,47 @@ public class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         entryLp.setMargins(0, dp(10), 0, dp(8));
         v.addView(kaEntry, entryLp);
+        // ---- 袭击助手入口（和生物白名单一样的折叠条）
+        int kaEntryPos = -1;
+        for (int i = 0; i < v.getChildCount(); i++) {
+            if (v.getChildAt(i) == kaEntry) { kaEntryPos = i; break; }
+        }
+        raidEntry = new LinearLayout(this);
+        raidEntry.setOrientation(LinearLayout.HORIZONTAL);
+        raidEntry.setGravity(Gravity.CENTER_VERTICAL);
+        android.graphics.drawable.GradientDrawable rbg =
+                new android.graphics.drawable.GradientDrawable();
+        rbg.setColor(Color.parseColor("#E8F5E9"));
+        rbg.setCornerRadius(dp(12));
+        raidEntry.setBackground(rbg);
+        raidEntry.setPadding(dp(16), dp(16), dp(16), dp(16));
+        raidEntry.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View x) {
+                showRaidPage();
+            }
+        });
+        TextView raidTitle = new TextView(this);
+        raidTitle.setText("袭击助手");
+        raidTitle.setTextSize(17f);
+        raidTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        raidTitle.setTextColor(Color.parseColor("#1B5E20"));
+        raidTitle.setGravity(Gravity.CENTER);
+        raidEntry.addView(raidTitle, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        raidCount = new TextView(this);
+        raidCount.setTextSize(13f);
+        raidCount.setTextColor(Color.parseColor("#558B2F"));
+        raidEntry.addView(raidCount);
+        TextView raidArrow = new TextView(this);
+        raidArrow.setText("  ›");
+        raidArrow.setTextSize(20f);
+        raidArrow.setTextColor(Color.parseColor("#888888"));
+        raidEntry.addView(raidArrow);
+        LinearLayout.LayoutParams raidLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        raidLp.setMargins(0, dp(0), 0, dp(8));
+        v.addView(raidEntry, raidLp);
+
 
         v.addView(btn("刷新全部模块状态", new View.OnClickListener() {
             public void onClick(View x) {
@@ -2385,6 +2435,227 @@ public class MainActivity extends Activity {
     // ------------------------------------------------------- 生物白名单整页
 
     /** 点入口条进入白名单整页（浮在标签页之上，返回即收起）。 */
+    // ------------------------------------------------------- 袭击助手
+
+    private void showRaidPage() {
+        if (overlayHost == null) return;
+        if (raidPage == null) {
+            raidPage = buildRaidPage();
+            overlayHost.addView(raidPage, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        }
+        raidPage.setVisibility(View.VISIBLE);
+        refreshRaid();
+    }
+
+    private void hideRaidPage() {
+        if (raidPage != null) raidPage.setVisibility(View.GONE);
+    }
+
+    private View buildRaidPage() {
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setBackgroundColor(Color.parseColor("#FFFFFF"));
+
+        LinearLayout head = new LinearLayout(this);
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.setBackgroundColor(Color.parseColor("#E8F5E9"));
+        head.setPadding(dp(8), dp(8), dp(12), dp(8));
+        Button back = btn("← 返回", new View.OnClickListener() {
+            public void onClick(View x) {
+                hideRaidPage();
+            }
+        });
+        back.setTextSize(13f);
+        head.addView(back);
+        TextView title = new TextView(this);
+        title.setText("袭击助手");
+        title.setTextSize(17f);
+        title.setTypeface(null, android.graphics.Typeface.BOLD);
+        title.setTextColor(Color.parseColor("#1B5E20"));
+        head.addView(title, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        page.addView(head);
+
+        ScrollView sc = new ScrollView(this);
+        LinearLayout v = new LinearLayout(this);
+        v.setOrientation(LinearLayout.VERTICAL);
+        v.setPadding(dp(14), dp(10), dp(14), dp(24));
+
+        TextView intro = new TextView(this);
+        intro.setTextSize(12f);
+        intro.setTextColor(Color.parseColor("#33691E"));
+        intro.setText("检测到袭击（Boss 栏出现 Raid）时自动切目标打袭击怪、开自动进食与防挂机；"
+                + "袭击结束全部还原。");
+        v.addView(intro);
+
+        raidStatus = value("读取中…", 13f);
+        raidStatus.setTextColor(Color.parseColor("#0D47A1"));
+        raidStatus.setPadding(dp(10), dp(10), dp(10), dp(10));
+        raidStatus.setBackgroundColor(Color.parseColor("#E3F2FD"));
+        v.addView(raidStatus);
+
+        raidToggle = btn("开启袭击助手", new View.OnClickListener() {
+            public void onClick(View x) {
+                raidSet(!raidOn);
+            }
+        });
+        raidToggle.setTextSize(16f);
+        v.addView(raidToggle);
+
+        raidFight = new CheckBox(this);
+        raidFight.setText("自动打袭击怪（pillager/vindicator/evoker/ravager/vex/witch/illusioner）");
+        raidFight.setTextSize(13f);
+        v.addView(raidFight);
+
+        raidEat = new CheckBox(this);
+        raidEat.setText("袭击期间开自动进食 autoEat");
+        raidEat.setTextSize(13f);
+        v.addView(raidEat);
+
+        raidAfk = new CheckBox(this);
+        raidAfk.setText("袭击期间开防挂机 antiAfk（对应插件的“保持活跃”）");
+        raidAfk.setTextSize(13f);
+        v.addView(raidAfk);
+
+        Button saveCfg = btn("保存选项", new View.OnClickListener() {
+            public void onClick(View x) {
+                raidSaveOptions();
+            }
+        });
+        saveCfg.setBackgroundColor(Color.parseColor("#2E7D32"));
+        saveCfg.setTextColor(Color.WHITE);
+        v.addView(saveCfg);
+
+        LinearLayout row = toolRow(v);
+        row.addView(btn("立即检测", new View.OnClickListener() {
+            public void onClick(View x) {
+                raidAction("/api/raid/check", "检测完成");
+            }
+        }));
+        row.addView(btn("模拟袭击", new View.OnClickListener() {
+            public void onClick(View x) {
+                raidAction("/api/raid/simulate", "已模拟袭击开始（点“结束模拟”还原）");
+            }
+        }));
+        row.addView(btn("结束模拟", new View.OnClickListener() {
+            public void onClick(View x) {
+                raidAction("/api/raid/reset", "已结束并还原");
+            }
+        }));
+
+        TextView hint = new TextView(this);
+        hint.setTextSize(11f);
+        hint.setTextColor(Color.parseColor("#C62828"));
+        hint.setText("说明：原插件的“喝药 / 开背包”是客户端界面动作，机器人没有背包界面；"
+                + "这里用“自动进食 + 防挂机”等价替代。袭击判定靠 Boss 栏标题包含 Raid/袭击。");
+        hint.setPadding(0, dp(10), 0, 0);
+        v.addView(hint);
+
+        sc.addView(v);
+        page.addView(sc, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        return page;
+    }
+
+    private void raidSet(final boolean want) {
+        JSONObject p = new JSONObject();
+        try {
+            p.put("enabled", want);
+        } catch (Exception ignored) {
+        }
+        helperPost("/api/raid/set", p, new HelperCb() {
+            public void done(JSONObject res, String err) {
+                if (err != null) {
+                    toast(err);
+                    return;
+                }
+                toast(want ? "袭击助手已开启" : "袭击助手已关闭");
+                refreshRaid();
+            }
+        });
+    }
+
+    private void raidSaveOptions() {
+        JSONObject p = new JSONObject();
+        try {
+            p.put("autoFight", raidFight.isChecked());
+            p.put("autoEat", raidEat.isChecked());
+            p.put("antiAfk", raidAfk.isChecked());
+        } catch (Exception ignored) {
+        }
+        helperPost("/api/raid/set", p, new HelperCb() {
+            public void done(JSONObject res, String err) {
+                if (err != null) {
+                    toast(err);
+                    return;
+                }
+                toast("选项已保存");
+                refreshRaid();
+            }
+        });
+    }
+
+    private void raidAction(final String path, final String okMsg) {
+        helperPost(path, null, new HelperCb() {
+            public void done(JSONObject res, String err) {
+                if (err != null) {
+                    toast(err);
+                    return;
+                }
+                toast(okMsg);
+                refreshRaid();
+            }
+        });
+    }
+
+    private void refreshRaid() {
+        final Api a = api;
+        if (a == null || !loggedIn) return;
+        helperPost("/api/raid/get", null, new HelperCb() {
+            public void done(JSONObject res, String err) {
+                if (err != null || res == null) {
+                    if (raidStatus != null) raidStatus.setText("读取失败：" + err);
+                    return;
+                }
+                raidOn = res.optBoolean("enabled", false);
+                boolean active = res.optBoolean("active", false);
+                if (raidCount != null) {
+                    raidCount.setText(raidOn ? (active ? "袭击中" : "已开启") : "已关闭");
+                }
+                if (raidToggle != null) {
+                    raidToggle.setText(raidOn ? "关闭袭击助手" : "开启袭击助手");
+                    raidToggle.setBackgroundColor(raidOn
+                            ? Color.parseColor("#C62828") : Color.parseColor("#2E7D32"));
+                    raidToggle.setTextColor(Color.WHITE);
+                }
+                if (raidFight != null) raidFight.setChecked(res.optBoolean("autoFight", true));
+                if (raidEat != null) raidEat.setChecked(res.optBoolean("autoEat", true));
+                if (raidAfk != null) raidAfk.setChecked(res.optBoolean("antiAfk", true));
+                if (raidStatus != null) {
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("助手: ").append(raidOn ? "已开启" : "已关闭");
+                    sb.append("　当前: ").append(active ? "袭击中" : "无袭击");
+                    if (active) {
+                        String title = res.optString("raidTitle", "");
+                        if (title.length() > 0) sb.append("（").append(title).append("）");
+                        sb.append("　已持续 ").append(res.optInt("activeSeconds", 0)).append(" 秒");
+                    }
+                    sb.append("\n累计触发: ").append(res.optInt("triggerCount", 0)).append(" 次");
+                    JSONArray added = res.optJSONArray("addedTargets");
+                    if (added != null && added.length() > 0) {
+                        sb.append("\n已加目标: ");
+                        for (int i = 0; i < added.length(); i++) {
+                            if (i > 0) sb.append(", ");
+                            sb.append(added.optString(i, ""));
+                        }
+                    }
+                    raidStatus.setText(sb.toString());
+                }
+            }
+        });
+    }
     private void showMobPage() {
         if (overlayHost == null) return;
         if (mobPage == null) {
@@ -2404,6 +2675,10 @@ public class MainActivity extends Activity {
     public void onBackPressed() {
         if (mobPage != null && mobPage.getVisibility() == View.VISIBLE) {
             hideMobPage();
+            return;
+        }
+        if (raidPage != null && raidPage.getVisibility() == View.VISIBLE) {
+            hideRaidPage();
             return;
         }
         super.onBackPressed();

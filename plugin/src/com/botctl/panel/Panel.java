@@ -178,6 +178,28 @@ public final class Panel {
             return;
         }
 
+        // ---- 袭击助手
+        if (path.equals("/api/raid/get")) {
+            send(ex, 200, Raid.get().state());
+            return;
+        }
+        if (path.equals("/api/raid/set")) {
+            send(ex, 200, Raid.get().set(reqBody));
+            return;
+        }
+        if (path.equals("/api/raid/check")) {
+            send(ex, 200, Raid.get().checkNow());
+            return;
+        }
+        if (path.equals("/api/raid/simulate")) {
+            send(ex, 200, Raid.get().simulateStart());
+            return;
+        }
+        if (path.equals("/api/raid/reset")) {
+            send(ex, 200, Raid.get().simulateEnd());
+            return;
+        }
+
         send(ex, 404, json("error", "not found"));
     }
 
